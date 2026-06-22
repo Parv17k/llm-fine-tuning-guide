@@ -1,0 +1,65 @@
+# LLM Fine-Tuning for Developers & DevOps
+
+A practical, end-to-end guide to fine-tuning Large Language Models for production.
+
+## Book Structure
+
+```
+book/
+├── 00-preface.md         # This book
+├── 01-foundations/       # Core concepts and prerequisites
+├── 02-introduction/      # Getting started and overview
+├── 03-hardware/          # Infrastructure and compute setup
+├── 04-data/              # Data engineering and preprocessing
+├── 05-training/          # Training dynamics and SFT
+├── 06-parameter-efficiency/ # LoRA, QLoRA, and adapters
+├── 07-alignment/         # DPO, ORPO, and behavior optimization
+├── 08-evaluation/        # Benchmarking and quality assurance
+├── 09-deployment/        # Quantization and serving
+├── 10-mlops/             # CI/CD and production pipelines
+└── 99-appendices/        # References and extras
+```
+
+## Target Audience
+
+- **Developers** with Python experience who want to fine-tune models
+- **DevOps Engineers** building MLOps pipelines
+- **Technical Enthusiasts** with basic ML knowledge
+
+## Prerequisites
+
+- Python > 3.10
+- PyTorch/CUDA setup
+- Familiarity with Hugging Face `transformers`, `peft`, `trl`
+
+## What You'll Learn
+
+1. **Infrastructure**: GPU selection, VRAM math, cluster provisioning
+2. **Data Engineering**: Tokenization, ChatML, dataset curation
+3. **Training**: SFT, hyperparameter tuning, optimization
+4. **Parameter Efficiency**: LoRA/QLoRA workflows
+5. **Alignment**: DPO/ORPO for behavior steering
+6. **Evaluation**: Benchmarking and custom evals
+7. **Deployment**: Quantization (GGUF, AWQ), serving (vLLM, TGI)
+8. **MLOps**: CI/CD, automated evaluation, continuous training
+
+## How to Use This Book
+
+### Recommended Path
+
+1. **01-Foundations**: Start here for core concepts
+2. **02-Introduction**: Set up your environment
+3. **03-Hardware**: Understand your compute requirements
+4. **04-Data**: Learn data preprocessing
+5. **05-Training**: Execute your first fine-tune
+6. **06-Parameter Efficiency**: Master LoRA/QLoRA
+7. **07-Alignment**: Steer model behavior
+8. **08-Evaluation**: Validate your model
+9. **09-Deployment**: Put models into production
+10. **10-MLOps**: Build automated pipelines
+
+### Skipping Around
+
+- **For data engineers**: Skip to **04-Data**
+- **For DevOps**: Start at **03-Hardware** then **09-Deployment**
+- **For researchers**: Focus on **06-Parameter Efficiency** and **07-Alignment**
