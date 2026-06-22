@@ -4,7 +4,7 @@
 
 > **No machine learning background required.** From zero LLM knowledge to production-ready fine-tuning.
 
-[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightblue.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E.svg)](https://huggingface.co/)
 
@@ -199,7 +199,7 @@ This is a living document! Contributions are welcome. To contribute:
 
 ## License
 
-This work is licensed under a [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
