@@ -1,8 +1,3 @@
----
-title: Home
-nav_order: 1
----
-
 # LLM Fine-Tuning Guide
 
 > A Step-by-Step Guide for Technical People
@@ -27,46 +22,46 @@ pip install -r requirements.txt
 ## Table of Contents
 
 ### Module 00: Prerequisites
-- [Neural Networks Basics]({{site.baseurl}}/content/00-neural-networks-basics/00-neural-networks-basics)
-- [Preface]({{site.baseurl}}/content/00-preface)
+- [Preface](../content/00-preface.md)
+- [Neural Networks Basics](../content/00-neural-networks-basics/00-neural-networks-basics.md)
 
 ### Module 01: Foundations
-- [Foundations Overview]({{site.baseurl}}/content/01-foundations/01-foundations-overview)
+- [Foundations Overview](../content/01-foundations/01-foundations-overview.md)
 
 ### Module 02: Introduction
-- [Introduction Overview]({{site.baseurl}}/content/02-introduction/02-introduction-overview)
-- [Setting Up Your Environment]({{site.baseurl}}/content/02-introduction/00-setup)
-- [Understanding LLM Architecture]({{site.baseurl}}/content/02-introduction/01-llm-architecture)
-- [What is Fine-Tuning?]({{site.baseurl}}/content/02-introduction/02-what-is-fine-tuning)
-- [Fine-Tuning Workflows]({{site.baseurl}}/content/02-introduction/03-workflows)
-- [Your First Fine-Tune]({{site.baseurl}}/content/02-introduction/04-first-fine-tune)
+- [Overview](../content/02-introduction/02-introduction-overview.md)
+- [Setting Up Your Environment](../content/02-introduction/00-setup.md)
+- [Understanding LLM Architecture](../content/02-introduction/01-llm-architecture.md)
+- [What is Fine-Tuning?](../content/02-introduction/02-what-is-fine-tuning.md)
+- [Fine-Tuning Workflows](../content/02-introduction/03-workflows.md)
+- [Your First Fine-Tune](../content/02-introduction/04-first-fine-tune.md)
 
 ### Module 03: Hardware Setup
-- Coming Soon
+- [Hardware Setup Guide](../content/03-hardware-setup/03-hardware-setup-guide.md)
 
 ### Module 04: Data Engineering
-- Coming Soon
+- [Data Engineering Guide](../content/04-data-engineering/04-data-engineering-guide.md)
 
 ### Module 05: Training Dynamics
-- Coming Soon
+- [Training Dynamics Guide](../content/05-training-dynamics/05-training-dynamics-guide.md)
 
 ### Module 06: Parameter Efficiency
-- Coming Soon
+- [Parameter Efficiency Guide](../content/06-parameter-efficiency/06-parameter-efficiency-guide.md)
 
 ### Module 07: Alignment
-- Coming Soon
+- [Alignment Guide](../content/07-alignment/07-alignment-guide.md)
 
 ### Module 08: Evaluation
-- Coming Soon
+- [Evaluation Guide](../content/08-evaluation/08-evaluation-guide.md)
 
 ### Module 09: Model Deployment
-- Coming Soon
+- [Model Deployment Guide](../content/09-model-deployment/09-model-deployment-guide.md)
 
 ### Module 10: MLOps Pipelines
-- Coming Soon
+- [MLOps Pipelines Guide](../content/10-mlops-pipelines/10-mlops-pipelines-guide.md)
 
 ### Module 11: Appendices
-- Coming Soon
+- [Appendices Guide](../content/11-appendices/11-appendices-guide.md)
 
 ---
 
@@ -94,5 +89,3 @@ pip install -r requirements.txt
 ## License
 
 MIT License — feel free to use for personal or commercial projects.
-
-[View on GitHub](https://github.com/Parv17k/llm-fine-tuning-guide){: .btn .btn-primary }
