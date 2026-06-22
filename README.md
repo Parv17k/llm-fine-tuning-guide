@@ -215,7 +215,8 @@ This work is licensed under a [Creative Commons Attribution 4.0 International Li
 
 - **Author**: Parv Khatri
 - **Email**: khatriparv@gmail.com
-- **GitHub**: [@khatriparv](https://github.com/khatriparv)
+- **GitHub**: https://github.com/Parv17k
+- **LinkedIn**: https://www.linkedin.com/in/parvkhatri/
 
 ---
 
