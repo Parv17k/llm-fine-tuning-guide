@@ -1,221 +1,267 @@
 # Your First LLM Fine-Tune: A Step-by-Step Guide for Technical People
 
-> **No machine learning background required.** From zero LLM knowledge to production-ready fine-tuning.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/downloads/)
-[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E.svg)](https://huggingface.co/)
-
----
-
-## Overview
-
-This is a practical, end-to-end guide to fine-tuning Large Language Models for developers and DevOps engineers. No ML background required.
+> **No machine learning background required.** From zero LLM knowledge to production-ready fine-tuning in 10 modules.
 
 <div align="center">
 
-| What You'll Learn | Tech Stack | Structure |
-|-------------------|------------|-----------|
-| Hardware setup & VRAM math | PyTorch, Transformers | 9 progressive modules |
-| Data engineering & tokenization | PEFT, LoRA, QLoRA | Foundational -> Production |
-| SFT, DPO, and ORPO | vLLM, TGI, GGUF | Clear visual guides |
-| Evaluation & quantization | Hugging Face Hub, CI/CD | Self-paced learning paths |
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/downloads/)
+[![Last Commit](https://img.shields.io/github/last-commit/Parv17k/llm-fine-tuning-guide)](https://github.com/Parv17k/llm-fine-tuning-guide/commits/main)
+[![Issues](https://img.shields.io/github/issues/Parv17k/llm-fine-tuning-guide)](https://github.com/Parv17k/llm-fine-tuning-guide/issues)
+[![Stars](https://img.shields.io/github/stars/Parv17k/llm-fine-tuning-guide)](https://github.com/Parv17k/llm-fine-tuning-guide/stargazers)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-FFD21E.svg)](https://huggingface.co/)
+
+**Paper-validated content** from LoRA, QLoRA, DPO, and ORPO research
+
+[Get Started](#quick-start) · [View Modules](#content-structure) · [Report Issues](https://github.com/Parv17k/llm-fine-tuning-guide/issues)
 
 </div>
 
 ---
 
-## Learning Paths
+## Why This Guide Exists
 
-Start wherever you are. Here's how to navigate:
+Most LLM fine-tuning resources assume you have a machine learning PhD. This guide is built for:
 
-### Path 1: Full Learning (Recommended)
+| You Are | This Guide Helps You |
+|---------|---------------------|
+| **Developer** | Fine-tune models using Python skills you already have |
+| **DevOps Engineer** | Provision GPUs, debug OOM errors, deploy to production |
+| **Technical Lead** | Make architecture decisions: Prompt vs RAG vs Fine-tune |
+| **Founder** | Build product-specific LLMs without hiring ML team |
 
-A comprehensive journey from foundations to production deployment.
+**What makes this different:**
 
-```mermaid
-graph LR
-    A[Module 00<br>Neural Networks] --> B[Module 01<br>Foundations]
-    B --> C[Module 02<br>Introduction]
-    C --> D[Module 03<br>Hardware]
-    D --> E[Module 04<br>Data]
-    E --> F[Module 05<br>Training]
-    F --> G[Module 06<br>Parameter Efficiency]
-    G --> H[Module 07<br>Alignment]
-    H --> I[Module 08<br>Evaluation]
-    I --> J[Module 09<br>Deployment]
-    J --> K[Module 10<br>MLOps]
-
-    style A fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
-    style B,C,D fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
-    style E,F,G,H fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
-    style I,J,K fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
-```
-
-### Path 2: Quick Start to Training
-
-For those ready to dive in quickly.
-
-```mermaid
-graph LR
-    A[Module 00<br>Neural Networks<br>Basics] --> B[Module 01<br>Foundations]
-    B --> C[Module 03<br>Hardware<br>Quick]
-    C --> D[Module 04<br>Data]
-    D --> E[Module 05<br>Training]
-
-    style A fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
-    style B fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
-    style C,D fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
-    style E fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
-```
-
-### Path 3: Skip Ahead
-
-| Know This? | Start Here |
-|------------|------------|
-| Neural networks basics | Module 00: Neural Networks |
-| Hardware/GPU | Module 03: Hardware Setup |
-| Data engineering | Module 04: Data Engineering |
-| SFT basics | Module 05: Training Dynamics |
-| LoRA/QLoRA | Module 06: Parameter Efficiency |
-| DPO/ORPO | Module 07: Alignment |
-| Evaluation | Module 08: Evaluation |
-| Deployment | Module 09: Model Deployment |
-
----
-
-## Content Structure
-
-```
-content/
-├── 00-preface.md                           # Welcome & navigation guide
-├── 00-neural-networks-basics.md            # Neural networks primer (no math)
-├── 01-foundations/                         # Core concepts, architecture decisions
-│   └── 01-foundations-overview.md
-├── 02-introduction/                        # Getting started, environment setup
-│   └── 02-introduction-overview.md
-├── 03-hardware-setup/                      # VRAM math, GPU selection, cluster setup
-│   └── 03-hardware-setup-guide.md
-├── 04-data-engineering/                    # Tokenization, ChatML, dataset curation
-│   └── 04-data-engineering-guide.md
-├── 05-training-dynamics/                   # SFT, hyperparameters, multi-GPU
-│   └── 05-training-dynamics-guide.md
-├── 06-parameter-efficiency/                # LoRA, QLoRA, adapters
-│   └── 06-parameter-efficiency-guide.md
-├── 07-alignment/                           # DPO, ORPO for behavior steering
-│   └── 07-alignment-guide.md
-├── 08-evaluation/                          # Benchmarking, custom evals
-│   └── 08-evaluation-guide.md
-├── 09-model-deployment/                    # Quantization, serving, production
-│   └── 09-model-deployment-guide.md
-├── 10-mlops-pipelines/                     # CI/CD, monitoring, automated pipelines
-│   └── 10-mlops-pipelines-guide.md
-└── 11-appendices/                          # Glossary, error reference, models
-    └── 11-appendices-guide.md
-```
+- **Paper-validated content** — Every technical claim backed by arXiv papers (LoRA, QLoRA, DPO, ORPO)
+- **No math prerequisites** — Neural networks explained without calculus or linear algebra
+- **Production-focused** — Deployment, quantization, MLOps pipelines included
+- **Decision frameworks** — Know *when* to fine-tune, not just *how*
 
 ---
 
 ## Quick Start
 
-### Prerequisites
-
-- Python > 3.10
-- Hugging Face account (free)
-- Basic Python knowledge (functions, loops, imports)
-- Optional: NVIDIA GPU (can use cloud)
-
-### Getting Started
+### 5-Minute Setup
 
 ```bash
-# 1. Set up your environment
-python -m venv venv
-source venv/bin/activate  # or .venv\Scripts\activate on Windows
+# 1. Create environment
+python -m venv venv && source venv/bin/activate
 
-# 2. Install required packages
+# 2. Install core packages
 pip install torch transformers peft trl datasets accelerate
 
 # 3. Authenticate with Hugging Face
 huggingface-cli login
 
-# 4. Choose your path
-# - Full learning: Start at content/00-neural-networks-basics.md
-# - Quick start: Jump to content/03-hardware-setup/
-# - Skip ahead: See "Path 3" above
+# 4. Start learning
+# Open content/01-foundations/01-foundations-overview.md
 ```
 
----
+### Prerequisites
 
-## What's Inside Each Module
-
-| Module | Title | Key Takeaway |
-|--------|-------|--------------|
-| 00 | Neural Networks | Concepts without math - how LLMs actually work |
-| 01 | Foundations | Core concepts that won't change |
-| 02 | Introduction | Environment setup, tooling, workflow |
-| 03 | Hardware Matrix | VRAM math, GPU selection, cluster setup |
-| 04 | Data Engine | Tokenization, ChatML, dataset curation |
-| 05 | Training Dynamics | SFT, hyperparameters, multi-GPU |
-| 06 | Parameter Efficiency | LoRA, QLoRA, adapters for efficiency |
-| 07 | Alignment | DPO, ORPO without RL complexity |
-| 08 | Evaluation | Avoid overfitting, custom evals |
-| 09 | Model Deployment | GGUF, AWQ, vLLM, TGI for production |
-| 10 | MLOps | CI/CD, monitoring, automated pipelines |
+- Python 3.10+
+- Hugging Face account (free tier works)
+- Basic Python (functions, loops, imports)
+- Optional: NVIDIA GPU (cloud alternatives provided)
 
 ---
 
-## Target Audience
+## Content Structure
 
-| Audience | Why You'll Love This Guide |
-|----------|----------------------------|
-| Developers | Learn fine-tuning without ML theory overload |
-| DevOps Engineers | Deploy and operationalize custom models |
-| Technical Founders | Build product-specific LLMs |
-| Enthusiasts | Hands-on learning with real examples |
+```mermaid
+flowchart LR
+    subgraph Foundations["Foundations"]
+        A[00: Neural Networks]
+        B[01: Foundations]
+    end
+    
+    subgraph Setup["Setup"]
+        C[02: Introduction]
+        D[03: Hardware]
+        E[04: Data]
+    end
+    
+    subgraph Training["Training"]
+        F[05: Training Dynamics]
+        G[06: Parameter Efficiency]
+        H[07: Alignment]
+    end
+    
+    subgraph Production["Production"]
+        I[08: Evaluation]
+        J[09: Deployment]
+        K[10: MLOps]
+    end
+    
+    Foundations --> Setup --> Training --> Production
+    
+    style Foundations fill:#4a90d9,stroke:#2c5f9d,color:#ffffff
+    style Setup fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style Training fill:#9c27b0,stroke:#7b1fa2,color:#ffffff
+    style Production fill:#ff9800,stroke:#f57c00,color:#ffffff
+```
+
+### Module Overview
+
+| Module | Title | Key Takeaway | Status |
+|--------|-------|--------------|--------|
+| 00 | Neural Networks | How LLMs work — no math | Complete |
+| **01** | **Foundations** | **Prompt vs RAG vs Fine-tune** | **Complete** |
+| 02 | Introduction | Environment, tooling, workflow | In Progress |
+| 03 | Hardware Matrix | VRAM math, GPU selection | Planned |
+| 04 | Data Engineering | Tokenization, ChatML, curation | Planned |
+| 05 | Training Dynamics | SFT, hyperparameters, multi-GPU | Planned |
+| 06 | Parameter Efficiency | LoRA, QLoRA, adapters | Planned |
+| 07 | Alignment | DPO, ORPO without RL | Planned |
+| 08 | Evaluation | Benchmarking, custom evals | Planned |
+| 09 | Deployment | GGUF, AWQ, vLLM, TGI | Planned |
+| 10 | MLOps | CI/CD, monitoring, pipelines | Planned |
+| 11 | Appendices | Glossary, error reference | Planned |
 
 ---
 
-## Tech Stack
+## Learning Paths
 
-| Category | Tools & Frameworks |
-|----------|-------------------|
-| Training | PyTorch, Transformers, PEFT, TRL |
-| Fine-tuning | LoRA, QLoRA, DPO, ORPO |
-| Serving | vLLM, TGI, llama.cpp (GGUF) |
-| Quantization | GGUF, AWQ, EXL2, EXL3 |
-| MLOps | Hugging Face Hub, GitHub Actions, Docker |
+### Path 1: Full Learning (Recommended)
+
+Complete journey from foundations to production:
+
+```
+00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10
+```
+
+**Time commitment:** 4-6 weeks, 5-10 hours/week
+
+### Path 2: Quick Start to Training
+
+Get to hands-on fine-tuning fast:
+
+```
+Neural Networks (00) → Foundations (01) → Hardware (03) → Data (04) → Training (05)
+```
+
+**Time commitment:** 2 weeks, 5-10 hours/week
+
+### Path 3: Skip Ahead
+
+| You Know | Start Here |
+|----------|------------|
+| Neural networks basics | Module 01: Foundations |
+| Hardware/GPU setup | Module 04: Data Engineering |
+| Data engineering | Module 05: Training Dynamics |
+| SFT basics | Module 06: Parameter Efficiency |
+| LoRA/QLoRA | Module 07: Alignment |
+| Fine-tuning | Module 09: Deployment |
 
 ---
 
 ## What You'll Build
 
-By the end of this guide, you'll have:
+By the end of this guide:
 
 1. **Custom fine-tuned models** for your specific use case
 2. **Production-ready pipelines** for continuous training
-3. **Automated evaluation** frameworks
-4. **Optimized deployment** strategies for inference
+3. **Automated evaluation frameworks** to measure quality
+4. **Optimized deployment strategies** for inference at scale
 5. **CI/CD workflows** for MLOps
+
+---
+
+## Tech Stack
+
+| Category | Tools |
+|----------|-------|
+| **Training** | PyTorch, Transformers, PEFT, TRL, Accelerate |
+| **Fine-tuning** | LoRA, QLoRA, DPO, ORPO |
+| **Serving** | vLLM, TGI, llama.cpp (GGUF) |
+| **Quantization** | GGUF, AWQ, EXL2, EXL3 |
+| **MLOps** | Hugging Face Hub, GitHub Actions, Docker |
+
+---
+
+## Key Concepts You'll Master
+
+### Fine-Tuning Methods
+
+| Method | Trainable Params | VRAM (7B) | Best For |
+|--------|-----------------|-----------|----------|
+| Full Fine-Tuning | 100% | ~98 GB | Research, multi-GPU clusters |
+| LoRA | 0.5-1% | ~18 GB | Production adapters |
+| QLoRA | 0.5-1% | ~6 GB | Consumer GPUs, prototyping |
+
+### Alignment Methods
+
+| Method | Stages | Training Time | Reference Model |
+|--------|--------|---------------|-----------------|
+| DPO | 2 (SFT → DPO) | 2x | Required |
+| ORPO | 1 (Direct) | 1x (56% faster) | Not required |
+
+### Decision Framework
+
+```mermaid
+flowchart TD
+    A[START] --> B{Need facts model<br/>doesn't have?}
+    B -->|YES| C[Use RAG]
+    B -->|NO| D{Style/format drift<br/>with good prompts?}
+    D -->|YES| E[Consider Fine-tuning]
+    D -->|NO| F[Ship with Prompting]
+    E --> G{High volume?<br/>100K+ queries/day}
+    G -->|YES| H[Fine-tune smaller model]
+    G -->|NO| I[Use RAG + Prompting]
+    
+    style C fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style F fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style H fill:#9c27b0,stroke:#7b1fa2,color:#ffffff
+    style I fill:#ff9800,stroke:#f57c00,color:#ffffff
+```
 
 ---
 
 ## Contributing
 
-This is a living document! Contributions are welcome. To contribute:
+This is a living document! Contributions are welcome.
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### Ways to Contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+- **Fix typos or clarify** — Small improvements matter
+- **Add examples** — Code snippets, troubleshooting guides
+- **Review technical accuracy** — Especially if you have fine-tuning experience
+- **Suggest topics** — Open an issue for missing content
+- **Improve navigation** — Better links, tables of contents
+
+### Getting Started
+
+```bash
+# 1. Fork the repository
+git clone https://github.com/your-username/llm-fine-tuning-guide.git
+
+# 2. Create a branch
+git checkout -b feature/your-improvement
+
+# 3. Make your changes
+# Edit markdown files in content/
+
+# 4. Submit a Pull Request
+git push origin feature/your-improvement
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## Roadmap
+
+| Quarter | Focus |
+|---------|-------|
+| Q2 2026 | Complete Modules 02-05 (Setup → Training) |
+| Q3 2026 | Complete Modules 06-10 (Efficiency → MLOps) |
+| Q4 2026 | Add interactive notebooks, video walkthroughs |
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -229,10 +275,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact & Support
 
-- **Author**: Parv Khatri
-- **Email**: khatriparv@gmail.com
-- **GitHub**: https://github.com/Parv17k
-- **LinkedIn**: https://www.linkedin.com/in/parvkhatri/
+| | |
+|---|---|
+| **Author** | Parv Khatri |
+| **Email** | khatriparv@gmail.com |
+| **GitHub** | [@Parv17k](https://github.com/Parv17k) |
+| **LinkedIn** | [parvkhatri](https://www.linkedin.com/in/parvkhatri/) |
+
+**Found this helpful?** [Star the repo](https://github.com/Parv17k/llm-fine-tuning-guide/stargazers) to support ongoing development.
 
 ---
 
@@ -240,6 +290,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Happy fine-tuning!**
 
-[Back to Top](#-your-first-llm-fine-tune)
+[Get Started](#quick-start) · [View Modules](#content-structure) · [Report Issues](https://github.com/Parv17k/llm-fine-tuning-guide/issues)
 
 </div>
