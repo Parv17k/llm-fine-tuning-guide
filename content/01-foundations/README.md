@@ -4,7 +4,7 @@ Core concepts and prerequisites for LLM fine-tuning.
 
 ## Contents
 
-- **Chapter 0: Neural Networks for LLMs** - [00-neural-networks-basics.md](./00-neural-networks-basics.md)  
+- **Chapter 0: Neural Networks for LLMs** - [../00-neural-networks-basics.md](../00-neural-networks-basics.md)  
   A developer-friendly introduction to neural networks - no math or ML background required  
   Understand key concepts, terminology, and how LLMs work at a high level
 
