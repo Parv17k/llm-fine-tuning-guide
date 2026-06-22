@@ -13,7 +13,7 @@
 
 **Paper-validated content** from LoRA, QLoRA, DPO, and ORPO research
 
-[Get Started](#quick-start) · [View Modules](#content-structure) · [Report Issues](https://github.com/Parv17k/llm-fine-tuning-guide/issues)
+[📖 Browse Documentation](https://parv17k.github.io/llm-fine-tuning-guide/) · [Get Started](#quick-start) · [View Modules](#content-structure) · [Report Issues](https://github.com/Parv17k/llm-fine-tuning-guide/issues)
 
 </div>
 
