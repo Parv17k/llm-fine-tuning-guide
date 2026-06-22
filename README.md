@@ -91,27 +91,27 @@ content/
 ├── 00-preface.md                           # Welcome & navigation guide
 ├── 00-neural-networks-basics.md            # Neural networks primer (no math)
 ├── 01-foundations/                         # Core concepts, architecture decisions
-│   └── README.md
+│   └── 01-foundations-overview.md
 ├── 02-introduction/                        # Getting started, environment setup
-│   └── README.md
+│   └── 02-introduction-overview.md
 ├── 03-hardware-setup/                      # VRAM math, GPU selection, cluster setup
-│   └── README.md
+│   └── 03-hardware-setup-guide.md
 ├── 04-data-engineering/                    # Tokenization, ChatML, dataset curation
-│   └── README.md
+│   └── 04-data-engineering-guide.md
 ├── 05-training-dynamics/                   # SFT, hyperparameters, multi-GPU
-│   └── README.md
+│   └── 05-training-dynamics-guide.md
 ├── 06-parameter-efficiency/                # LoRA, QLoRA, adapters
-│   └── README.md
+│   └── 06-parameter-efficiency-guide.md
 ├── 07-alignment/                           # DPO, ORPO for behavior steering
-│   └── README.md
+│   └── 07-alignment-guide.md
 ├── 08-evaluation/                          # Benchmarking, custom evals
-│   └── README.md
+│   └── 08-evaluation-guide.md
 ├── 09-model-deployment/                    # Quantization, serving, production
-│   └── README.md
+│   └── 09-model-deployment-guide.md
 ├── 10-mlops-pipelines/                     # CI/CD, monitoring, automated pipelines
-│   └── README.md
+│   └── 10-mlops-pipelines-guide.md
 └── 11-appendices/                          # Glossary, error reference, models
-    └── README.md
+    └── 11-appendices-guide.md
 ```
 
 ---
