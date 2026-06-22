@@ -1,0 +1,40 @@
+# Jekyll configuration for GitHub Pages
+title: LLM Fine-Tuning Guide
+description: A Step-by-Step Guide for Technical People
+theme: just-the-docs
+
+# Repository info
+repository: Parv17k/llm-fine-tuning-guide
+
+# Navigation
+nav_enabled: true
+
+# Aux links (shown in top right)
+aux_links:
+  "View on GitHub":
+    - "https://github.com/Parv17k/llm-fine-tuning-guide"
+
+# Color scheme
+color_scheme: dark
+
+# Mermaid diagram support
+mermaid:
+  version: "10.9.1"
+  config:
+    startOnLoad: true
+
+# Enable search
+search_enabled: true
+
+# Heading anchors for easy linking
+heading_anchors: true
+
+# Footer content
+footer_content: "Licensed under MIT"
+
+# Exclude from build
+exclude:
+  - README.md
+  - .github/
+  - scripts/
+  - examples/

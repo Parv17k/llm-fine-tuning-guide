@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Fine-Tuning Guide</title>
+  <meta name="description" content="A Step-by-Step Guide for Technical People - Learn to fine-tune LLMs from scratch">
+
+  <!-- Docsify Theme -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/themes/vue.min.css" />
+
+  <!-- Custom Styles -->
+  <style>
+    :root {
+      --theme-color: #2563eb;
+      --base-background-color: #0d1117;
+      --base-color: #c9d1d9;
+      --sidebar-background-color: #161b22;
+      --sidebar-nav-color: #8b949e;
+      --sidebar-nav-strong-color: #f0f6fc;
+      --code-background-color: #21262d;
+      --code-theme-color: #58a6ff;
+    }
+
+    .markdown-section {
+      max-width: 900px;
+    }
+
+    .app-nav {
+      background: var(--sidebar-background-color);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin: 1rem;
+    }
+
+    blockquote {
+      border-left: 4px solid var(--theme-color);
+      background: rgba(37, 99, 235, 0.1);
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+
+    th {
+      background: var(--code-background-color);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">Loading...</div>
+
+  <script>
+    window.$docsify = {
+      name: 'LLM Fine-Tuning Guide',
+      repo: 'https://github.com/Parv17k/llm-fine-tuning-guide',
+      loadSidebar: true,
+      loadNavbar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search...',
+        noData: 'No results found',
+        depth: 6
+      },
+      pagination: {
+        previousText: '← Previous',
+        nextText: 'Next →',
+        crossChapter: true,
+        crossChapterText: true
+      },
+      plugins: [
+        function(hook, vm) {
+          hook.beforeEach(function(html) {
+            return html + '\n\n---\n\n> Found an issue? [Edit this page on GitHub](' + vm.route.file + ')';
+          });
+        }
+      ]
+    };
+  </script>
+
+  <!-- Docsify Core -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+
+  <!-- Search Plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+
+  <!-- Pagination Plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-pagination@latest/dist/docsify-pagination.min.js"></script>
+
+  <!-- Mermaid Diagrams -->
+  <script src="//cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    window.mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  </script>
+
+  <!-- Copy Code Plugin -->
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
+
+  <!-- External Scripts -->
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+</body>
+</html>
