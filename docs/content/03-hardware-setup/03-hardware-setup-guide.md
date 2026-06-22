@@ -135,11 +135,11 @@ flowchart TB
 
 | Feature | NVIDIA | AMD |
 |---------|--------|-----|
-| **CUDA ecosystem** | ✅ Full support | ❌ Limited |
-| **PyTorch support** | ✅ Native | ⚠️ ROCm (Linux only) |
-| **BitsAndBytes** | ✅ Works | ❌ Not supported |
-| **Flash Attention** | ✅ Works | ❌ Not supported |
-| **Community support** | ✅ Extensive | ⚠️ Limited |
+| **CUDA ecosystem** | Full support | Limited |
+| **PyTorch support** | Native | ROCm (Linux only) |
+| **BitsAndBytes** | Works | Not supported |
+| **Flash Attention** | Works | Not supported |
+| **Community support** | Extensive | Limited |
 
 **Recommendation:** Stick with NVIDIA for hassle-free fine-tuning. AMD requires Linux expertise and has limited library support.
 
@@ -184,11 +184,11 @@ flowchart TB
 
 | Model | Method | Free Tier | Pro Tier |
 |-------|--------|-----------|----------|
-| **TinyLlama (1.1B)** | Full FT | ✅ Yes | ✅ Yes |
-| **Mistral-7B** | QLoRA | ✅ Yes | ✅ Yes |
-| **Mistral-7B** | LoRA | ⚠️ OOM | ✅ Yes |
-| **Llama-3-8B** | QLoRA | ✅ Yes | ✅ Yes |
-| **Llama-3-70B** | QLoRA | ❌ No | ⚠️ Maybe |
+| **TinyLlama (1.1B)** | Full FT | Yes | Yes |
+| **Mistral-7B** | QLoRA | Yes | Yes |
+| **Mistral-7B** | LoRA | OOM | Yes |
+| **Llama-3-8B** | QLoRA | Yes | Yes |
+| **Llama-3-70B** | QLoRA | No | Maybe |
 
 ### Colab Setup Script
 
@@ -603,7 +603,7 @@ Save as `setup_cloud_gpu.sh`:
 
 set -e
 
-echo "🚀 Setting up GPU instance for LLM fine-tuning..."
+echo "Setting up GPU instance for LLM fine-tuning..."
 
 # Detect cloud provider
 if [ -f /etc/aws-instance ]; then
@@ -656,7 +656,7 @@ if torch.cuda.is_available():
     print(f'GPU: {torch.cuda.get_device_name()}')
 "
 
-echo "✅ Setup complete!"
+echo "Setup complete!"
 echo ""
 echo "To activate environment: conda activate llm"
 echo "To start training: python your_script.py"
