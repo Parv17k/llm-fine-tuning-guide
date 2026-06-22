@@ -55,10 +55,14 @@
     window.$docsify = {
       name: 'LLM Fine-Tuning Guide',
       repo: 'https://github.com/Parv17k/llm-fine-tuning-guide',
+      basePath: '/llm-fine-tuning-guide/',
       loadSidebar: true,
       loadNavbar: true,
       subMaxLevel: 3,
       auto2top: true,
+      // External link support
+      externalLinkTarget: '_blank',
+      externalLinkRel: 'noopener',
       search: {
         maxAge: 86400000,
         paths: 'auto',
