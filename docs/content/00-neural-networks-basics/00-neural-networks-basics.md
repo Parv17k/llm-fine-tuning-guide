@@ -56,7 +56,10 @@ flowchart LR
     
     style Input fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
     style Tokenizer fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
-    style Num,Num2,Num3,Num4 fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style Num fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style Num2 fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style Num3 fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style Num4 fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
 ```
 
 **Why**: Computers process numbers better than text. This creates a "vocabulary" of common word pieces.
