@@ -6,8 +6,8 @@
   <title>LLM Fine-Tuning Guide</title>
   <meta name="description" content="A Step-by-Step Guide for Technical People - Learn to fine-tune LLMs from scratch">
 
-  <!-- Docsify Theme CSS -->
-  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/themes/vue.min.css" id="theme-css" />
+  <!-- Docsify Theme CSS - Dark theme by default -->
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/themes/dark.min.css" id="theme-css" />
 
   <!-- Theme Toggle Styles -->
   <style>
@@ -75,17 +75,63 @@
 
     /* Dark Theme Overrides */
     body.dark-theme {
-      --theme-color: #2563eb;
-      --base-background-color: #0d1117;
-      --base-color: #c9d1d9;
-      --sidebar-background-color: #161b22;
-      --sidebar-nav-color: #8b949e;
-      --sidebar-nav-strong-color: #f0f6fc;
-      --code-background-color: #21262d;
-      --code-theme-color: #58a6ff;
-      --heading-color: #f0f6fc;
-      --link-color: #58a6ff;
-      --blockquote-color: #8b949e;
+      --theme-color: #3b82f6;
+      --base-background-color: #0a0a0a;
+      --base-color: #e5e5e5;
+      --sidebar-background-color: #121212;
+      --sidebar-nav-color: #a0a0a0;
+      --sidebar-nav-strong-color: #ffffff;
+      --code-background-color: #1a1a1a;
+      --code-theme-color: #60a5fa;
+      --heading-color: #ffffff;
+      --link-color: #60a5fa;
+      --blockquote-color: #a0a0a0;
+      --border-color: #2a2a2a;
+    }
+
+    /* Additional dark theme overrides for docsify elements */
+    body.dark-theme .markdown-section h1,
+    body.dark-theme .markdown-section h2,
+    body.dark-theme .markdown-section h3,
+    body.dark-theme .markdown-section h4,
+    body.dark-theme .markdown-section h5,
+    body.dark-theme .markdown-section h6 {
+      color: #ffffff !important;
+    }
+
+    body.dark-theme .markdown-section pre,
+    body.dark-theme .markdown-section code {
+      background: #1a1a1a !important;
+      color: #e5e5e5 !important;
+    }
+
+    body.dark-theme .markdown-section blockquote {
+      background: #1a1a1a !important;
+      color: #a0a0a0 !important;
+      border-left: 4px solid #3b82f6 !important;
+    }
+
+    body.dark-theme .sidebar {
+      background: #121212 !important;
+      color: #a0a0a0 !important;
+    }
+
+    body.dark-theme .sidebar li {
+      color: #a0a0a0 !important;
+    }
+
+    body.dark-theme .sidebar strong {
+      color: #ffffff !important;
+    }
+
+    body.dark-theme .markdown-section table tr,
+    body.dark-theme .markdown-section table tr:nth-child(2n) {
+      background: #121212 !important;
+    }
+
+    body.dark-theme .markdown-section table th,
+    body.dark-theme .markdown-section table td {
+      border-color: #2a2a2a !important;
     }
 
     /* Light Theme Overrides */
@@ -207,11 +253,11 @@
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'light') {
               document.body.classList.add('light-theme');
-            } else {
-              // Default to dark theme
-              document.body.classList.add('dark-theme');
               const themeCss = document.getElementById('theme-css');
-              themeCss.href = '//cdn.jsdelivr.net/npm/docsify@4/themes/dark.min.css';
+              themeCss.href = '//cdn.jsdelivr.net/npm/docsify@4/themes/vue.min.css';
+            } else {
+              // Default to dark theme (already loaded)
+              document.body.classList.add('dark-theme');
             }
           });
         }
