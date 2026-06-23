@@ -75,6 +75,53 @@ flowchart TB
 
 ## Dataset Curation Strategies
 
+### Data Pipeline Overview
+
+```mermaid
+flowchart LR
+    A[Raw Data<br/>Web scrapes, APIs, Logs] --> B[Preprocessing<br/>Clean, Filter]
+    B --> C[Deduplication<br/>Exact + Fuzzy]
+    C --> D[Formatting<br/>ChatML/Alpaca]
+    D --> E[Splitting<br/>Train/Val/Test]
+    E --> F[Final Dataset<br/>Ready for Training]
+    
+    style A fill:#4a90d9,stroke:#2c5f9d,color:#ffffff
+    style B fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style C fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style D fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style E fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style F fill:#4caf50,stroke:#388e3c,color:#ffffff
+```
+
+### Curation Strategy Decision Tree
+
+```mermaid
+graph TD
+    A[Need Training Data] --> B{Task Type?}
+    B -->|General Chat| C[Use Existing<br/>UltraChat, OpenOrca]
+    B -->|Domain Specific| D{Data Available?}
+    B -->|Code| E[Use Code Datasets<br/>CodeAlpaca, TheStack]
+    
+    D -->|Yes| F[Curate Custom<br/>From your data]
+    D -->|No| G[Generate Synthetic<br/>Self-instruct]
+    
+    C --> H[Format + Filter]
+    E --> H
+    F --> H
+    G --> H
+    H --> I[Train Model]
+    
+    style A fill:#2d333b
+    style B fill:#347d39
+    style C fill:#238636
+    style D fill:#347d39
+    style E fill:#238636
+    style F fill:#238636
+    style G fill:#f9d371
+    style H fill:#1a1a1a
+    style I fill:#4caf50
+```
+
 ### Option 1: Use Existing Datasets
 
 #### Hugging Face Datasets
@@ -205,6 +252,42 @@ print(f"Total samples: {len(combined)}")
 ---
 
 ## Tokenization Mechanics
+
+### Tokenization Process Visualization
+
+```mermaid
+flowchart LR
+    A[Input Text<br/>"Fine-tuning LLMs"] --> B[Tokenizer]
+    B --> C["Tokens:<br/>['Fine', '-', 'tun', 'ing', 'ĠLL', 'Ms']"]
+    C --> D["Token IDs:<br/>[1234, 5, 67, 89, 234, 567]"]
+    D --> E[Embedding Layer]
+    E --> F["Vectors:<br/>4096 dimensions each"]
+    
+    style A fill:#4a90d9,stroke:#2c5f9d,color:#ffffff
+    style B fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style C fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style D fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style E fill:#ff9800,stroke:#f57c00,color:#ffffff
+    style F fill:#4caf50,stroke:#388e3c,color:#ffffff
+```
+
+### Tokenization Algorithm Comparison
+
+```mermaid
+graph TB
+    subgraph Algorithms["Tokenization Algorithms"]
+        BPE[BPE<br/>Byte-Pair Encoding] --> G[GPT, Llama, RoBERTa]
+        WP[WordPiece<br/>Greedy BPE] --> H[BERT, DistilBERT]
+        SP[SentencePiece<br/>Unigram LM] --> I[T5, XLNet]
+        TT[TikToken<br/>BPE variant] --> J[GPT-4, Llama-3]
+    end
+    
+    style Algorithms fill:#c8e6c9
+    style BPE fill:#238636
+    style WP fill:#238636
+    style SP fill:#238636
+    style TT fill:#238636
+```
 
 ### What is Tokenization?
 

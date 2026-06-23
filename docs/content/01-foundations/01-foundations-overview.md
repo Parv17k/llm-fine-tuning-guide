@@ -598,6 +598,145 @@ LoRA/QLoRA need **higher** learning rates than full fine-tuning:
 
 ---
 
+## Open-Weight vs. Closed Models
+
+### Understanding Model Access
+
+Not all LLMs can be fine-tuned. Understanding the distinction between open-weight and closed models is critical before investing in a fine-tuning project.
+
+```mermaid
+graph TD
+    A[LLM Type] --> B[Open-Weight]
+    A --> C[Closed/API-Only]
+    
+    B --> D[Download Weights<br/>Local Fine-Tuning<br/>Self-Host Inference]
+    C --> E[API Access Only<br/>Prompting Only<br/>No Weight Access]
+    
+    D --> F[Examples:<br/>Llama, Mistral, Qwen, Gemma]
+    E --> G[Examples:<br/>GPT-4, Claude, Gemini]
+    
+    style A fill:#2d333b
+    style B fill:#238636
+    style C fill:#d73a49
+    style D fill:#1a1a1a
+    style E fill:#1a1a1a
+    style F fill:#1a1a1a
+    style G fill:#1a1a1a
+```
+
+### Open-Weight Models (Fine-Tunable)
+
+| Model Family | Publisher | License | Fine-Tuning | Commercial Use |
+|--------------|-----------|---------|-------------|----------------|
+| **Llama-2/3/3.1** | Meta | Llama Community License | ✅ Full rights | ✅ Allowed (with restrictions) |
+| **Mistral-7B** | Mistral AI | Apache 2.0 | ✅ Full rights | ✅ Allowed |
+| **Mixtral-8x7B** | Mistral AI | Apache 2.0 | ✅ Full rights | ✅ Allowed |
+| **Qwen2** | Alibaba | Apache 2.0 | ✅ Full rights | ✅ Allowed |
+| **Gemma-2** | Google | Gemma License | ✅ Full rights | ✅ Allowed |
+| **Phi-3** | Microsoft | MIT | ✅ Full rights | ✅ Allowed |
+| **Falcon** | TII | Apache 2.0 | ✅ Full rights | ✅ Allowed |
+| **OLMo** | Allen AI | Apache 2.0 | ✅ Full rights | ✅ Allowed |
+
+**Key Benefits**:
+- Download weights and fine-tune locally
+- Self-host for production (no API costs)
+- Full control over model behavior
+- No usage tracking or rate limits
+
+**Llama Community License Restrictions**:
+- Cannot use if you have >700M monthly active users
+- Must display "Built with Llama" notice
+- Cannot use output to train other LLMs
+
+### Closed/API-Only Models (Not Fine-Tunable)
+
+| Model | Provider | Access | Fine-Tuning | Alternative |
+|-------|----------|--------|-------------|-------------|
+| **GPT-4/4o** | OpenAI | API only | ❌ No | Fine-tune GPT-3.5 only |
+| **Claude 3/4** | Anthropic | API only | ❌ No | Prompt engineering only |
+| **Gemini Pro** | Google | API only | ❌ No | Use Gemma instead |
+| **Command-R+** | Cohere | API only | ⚠️ Limited | Enterprise contracts only |
+
+**Key Limitations**:
+- Cannot access model weights
+- Fine-tuning unavailable (or very limited)
+- Pay per token for inference
+- Subject to rate limits and downtime
+- No control over model updates
+
+### Decision Framework: Open vs. Closed
+
+```mermaid
+flowchart TD
+    A[Need LLM for Project] --> B{Need Fine-Tuning?}
+    B -->|Yes| C[Must Use Open-Weight]
+    B -->|No| D{Need Best Quality?}
+    
+    D -->|Yes| E[Use Closed API<br/>GPT-4, Claude]
+    D -->|No| F{Budget Constraints?}
+    
+    F -->|Low Budget| G[Open-Weight + Self-Host<br/>Lower ongoing costs]
+    F -->|OK with API costs| H[Closed API<br/>Faster to deploy]
+    
+    C --> I[Llama-3, Mistral, Qwen<br/>Fine-tune locally]
+    
+    style A fill:#2d333b
+    style B fill:#347d39
+    style C fill:#238636
+    style D fill:#347d39
+    style E fill:#f9d371
+    style F fill:#347d39
+    style G fill:#238636
+    style H fill:#1a1a1a
+    style I fill:#238636
+```
+
+### License Comparison
+
+| License | Fine-Tune | Commercial | Derivative Works | Attribution |
+|---------|-----------|------------|------------------|-------------|
+| **Apache 2.0** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Required |
+| **MIT** | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Required |
+| **Llama Community** | ✅ Yes | ⚠️ Restrictions | ⚠️ Restrictions | ✅ Required |
+| **Gemma License** | ✅ Yes | ✅ Yes | ⚠️ Some restrictions | ✅ Required |
+| **Proprietary** | ❌ No | ⚠️ Contract terms | ❌ No | N/A |
+
+### When to Choose Each
+
+**Choose Open-Weight When**:
+- You need to fine-tune for domain-specific behavior
+- Production costs matter (self-hosting is cheaper at scale)
+- You need full control over model updates
+- Data privacy requires on-premise deployment
+- You need to avoid vendor lock-in
+
+**Choose Closed/API When**:
+- You need state-of-the-art quality immediately
+- You don't need fine-tuning (prompting suffices)
+- You want to avoid infrastructure management
+- Your use case is low-volume (API costs acceptable)
+- You need multi-modal capabilities (images, audio)
+
+### Hybrid Strategy
+
+Many production systems use both:
+
+```
+Development/Prototyping → Closed API (GPT-4 for quality)
+     ↓
+Validate requirements → Measure quality, latency, costs
+     ↓
+Production Deployment → Open-weight fine-tuned model (cost reduction)
+```
+
+**Example**: A customer support bot might:
+1. Prototype with GPT-4 to validate the use case
+2. Collect conversation logs (with consent)
+3. Fine-tune Llama-3-8B on your data
+4. Deploy self-hosted for 90% cost reduction
+
+---
+
 ## What You'll Build in This Module
 
 By the end of Module 01, you'll have:

@@ -6,6 +6,7 @@
 ## Module 00: Prerequisites
 - [Preface](content/00-preface.md)
 - [Neural Networks Basics](content/00-neural-networks-basics/00-neural-networks-basics.md)
+- [LLM Architectures](content/00-neural-networks-basics/01-llm-architectures.md)
 
 ## Module 01: Foundations
 - [Foundations Overview](content/01-foundations/01-foundations-overview.md)
@@ -44,3 +45,4 @@
 
 ## Module 11: Appendices
 - [Appendices](content/11-appendices/11-appendices-guide.md)
+- [Quick Revision](content/11-appendices/02-quick-revision.md)

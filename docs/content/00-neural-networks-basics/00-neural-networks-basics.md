@@ -244,3 +244,10 @@ This foundation will help you make better decisions when:
 - Preparing data
 - Designing prompts
 - Evaluating results
+
+---
+
+## Related: LLM Architectures
+
+For a deep dive into specific model architectures (Llama, Mistral, GPT, etc.), see:
+- [LLM Architectures: From Transformer to Llama-3](./01-llm-architectures.md)
