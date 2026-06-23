@@ -9,8 +9,71 @@
   <!-- Docsify Theme -->
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/themes/vue.min.css" />
 
-  <!-- Custom Styles -->
+  <!-- Theme Toggle Styles -->
   <style>
+    .theme-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1000;
+      background: var(--sidebar-background-color, #161b22);
+      border: 1px solid #30363d;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      color: #c9d1d9;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .theme-toggle:hover {
+      background: #21262d;
+    }
+
+    .theme-toggle svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Reader Mode Styles */
+    .reader-mode-active .sidebar,
+    .reader-mode-active .app-nav {
+      display: none !important;
+    }
+
+    .reader-mode-active .content {
+      margin-left: 0 !important;
+      max-width: 800px !important;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .reader-mode-toggle {
+      position: fixed;
+      top: 1rem;
+      right: 8rem;
+      z-index: 1000;
+      background: var(--sidebar-background-color, #161b22);
+      border: 1px solid #30363d;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      color: #c9d1d9;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .reader-mode-toggle:hover {
+      background: #21262d;
+    }
+
+    /* Dark Theme (Default) */
     :root {
       --theme-color: #2563eb;
       --base-background-color: #0d1117;
@@ -20,6 +83,46 @@
       --sidebar-nav-strong-color: #f0f6fc;
       --code-background-color: #21262d;
       --code-theme-color: #58a6ff;
+      --heading-color: #f0f6fc;
+      --link-color: #58a6ff;
+      --blockquote-color: #8b949e;
+    }
+
+    /* Light Theme */
+    body.light-theme {
+      --base-background-color: #ffffff;
+      --base-color: #24292f;
+      --sidebar-background-color: #f6f8fa;
+      --sidebar-nav-color: #57606a;
+      --sidebar-nav-strong-color: #24292f;
+      --code-background-color: #f6f8fa;
+      --code-theme-color: #0550ae;
+      --heading-color: #24292f;
+      --link-color: #0969da;
+      --blockquote-color: #57606a;
+    }
+
+    body.light-theme .theme-toggle .sun-icon {
+      display: none;
+    }
+
+    body:not(.light-theme) .theme-toggle .moon-icon {
+      display: none;
+    }
+
+    /* Light theme specific styles */
+    body.light-theme .markdown-section blockquote {
+      border-left-color: var(--theme-color);
+      background: rgba(37, 99, 235, 0.1);
+    }
+
+    body.light-theme .markdown-section code {
+      background: var(--code-background-color);
+      color: var(--code-theme-color);
+    }
+
+    body.light-theme .markdown-section pre {
+      background: var(--code-background-color);
     }
 
     .markdown-section {
@@ -49,6 +152,25 @@
   </style>
 </head>
 <body>
+  <!-- Theme Toggle Button -->
+  <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light theme">
+    <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+    <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+    <span class="theme-text">Theme</span>
+  </button>
+
+  <!-- Reader Mode Toggle Button -->
+  <button class="reader-mode-toggle" onclick="toggleReaderMode()" title="Toggle reader mode (hide sidebar)">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+    <span class="reader-text">Reader</span>
+  </button>
+
   <div id="app">Loading...</div>
 
   <script>
@@ -81,9 +203,44 @@
           hook.beforeEach(function(html) {
             return html + '\n\n---\n\n> Found an issue? [Edit this page on GitHub](' + vm.route.file + ')';
           });
+        },
+        // Initialize theme on load
+        function(hook, vm) {
+          hook.ready(function() {
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+              document.body.classList.add('light-theme');
+            }
+
+            // Check for saved reader mode preference
+            const savedReaderMode = localStorage.getItem('readerMode');
+            if (savedReaderMode === 'active') {
+              document.body.classList.add('reader-mode-active');
+            }
+          });
         }
       ]
     };
+
+    // Theme Toggle Function
+    function toggleTheme() {
+      document.body.classList.toggle('light-theme');
+      const isLight = document.body.classList.contains('light-theme');
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    }
+
+    // Reader Mode Toggle Function
+    function toggleReaderMode() {
+      document.body.classList.toggle('reader-mode-active');
+      const isActive = document.body.classList.contains('reader-mode-active');
+      localStorage.setItem('readerMode', isActive ? 'active' : 'inactive');
+
+      // Scroll to top when entering reader mode
+      if (isActive) {
+        window.scrollTo(0, 0);
+      }
+    }
   </script>
 
   <!-- Docsify Core -->
