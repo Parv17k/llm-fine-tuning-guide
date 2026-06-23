@@ -184,6 +184,16 @@
         crossChapter: true,
         crossChapterText: true
       },
+      markdown: {
+        renderer: {
+          code: function(code, lang) {
+            if (lang === 'mermaid') {
+              return '<div class="mermaid">' + code + '</div>';
+            }
+            return this.constructor.prototype.code.apply(this, arguments);
+          }
+        }
+      },
       plugins: [
         function(hook, vm) {
           hook.beforeEach(function(html) {
@@ -251,10 +261,16 @@
   <script src="//cdn.jsdelivr.net/npm/docsify-pagination@latest/dist/docsify-pagination.min.js"></script>
 
   <!-- Mermaid Diagrams -->
-  <script src="//cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-  <script>
-    window.mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      securityLevel: 'loose',
+    });
+    window.mermaid = mermaid;
   </script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
 
   <!-- Copy Code Plugin -->
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
