@@ -73,7 +73,8 @@
       background: #21262d;
     }
 
-    /* Dark Theme Overrides */
+    /* Dark Theme Overrides - apply to html and body directly */
+    html.dark-theme,
     body.dark-theme {
       --theme-color: #3b82f6;
       --base-background-color: #0a0a0a;
@@ -87,6 +88,11 @@
       --link-color: #60a5fa;
       --blockquote-color: #a0a0a0;
       --border-color: #2a2a2a;
+      background-color: #0a0a0a !important;
+    }
+
+    html.dark-theme {
+      background: #0a0a0a !important;
     }
 
     /* Additional dark theme overrides for docsify elements */
