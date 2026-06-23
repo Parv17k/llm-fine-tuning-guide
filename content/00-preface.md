@@ -74,9 +74,14 @@ graph TB
     DP --> M
 
     style F fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
-    style H,D fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
-    style T,PE,A fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
-    style E,DP,M fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style H fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style D fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
+    style T fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
+    style PE fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
+    style A fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
+    style E fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style DP fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style M fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
 ```
 
 ### Learning Paths Overview

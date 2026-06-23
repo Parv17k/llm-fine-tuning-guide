@@ -109,7 +109,8 @@ flowchart LR
     Hidden2 --> Output[Output: 3 values]
     
     style Input fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
-    style Hidden1,Hidden2 fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style Hidden1 fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style Hidden2 fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
     style Output fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
 ```
 
@@ -134,7 +135,8 @@ flowchart LR
     AddNorm2 --> Output[Output Embeddings]
     
     style Input fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
-    style AttentionBlock,MLP fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style AttentionBlock fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
+    style MLP fill:#ff9800,stroke:#f57c00,color:#ffffff,stroke-width:2px
     style Output fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
 ```
 

@@ -273,8 +273,10 @@ graph TB
     
     style Input fill:#4a90d9,stroke:#2c5f9d,color:#ffffff
     style Router fill:#ff9800,stroke:#f57c00,color:#ffffff
-    style E1,E2 fill:#4caf50,stroke:#388e3c,color:#ffffff
-    style E3,E4 fill:#666,stroke:#444,color:#999
+    style E1 fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style E2 fill:#4caf50,stroke:#388e3c,color:#ffffff
+    style E3 fill:#666,stroke:#444,color:#999
+    style E4 fill:#666,stroke:#444,color:#999
     style Combine fill:#4caf50,stroke:#388e3c,color:#ffffff
     style Output fill:#4caf50,stroke:#388e3c,color:#ffffff
 ```
