@@ -311,7 +311,8 @@
             if (lang === 'mermaid') {
               return '<div class="mermaid">' + code + '</div>';
             }
-            return this.constructor.prototype.code.apply(this, arguments);
+            // Use marked's default code renderer
+            return marked.Renderer.prototype.code.apply(this, arguments);
           }
         }
       },
