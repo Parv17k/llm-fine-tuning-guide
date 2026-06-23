@@ -93,6 +93,18 @@
 
     html.dark-theme {
       background: #0a0a0a !important;
+      min-height: 100vh;
+    }
+
+    body.dark-theme {
+      min-height: 100vh;
+    }
+
+    /* Ensure app container and content fill viewport */
+    body.dark-theme #app,
+    body.dark-theme .app {
+      background: #0a0a0a !important;
+      min-height: 100vh;
     }
 
     /* Additional dark theme overrides for docsify elements */
