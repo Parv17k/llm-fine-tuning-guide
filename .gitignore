@@ -30,6 +30,10 @@ venv/
 node_modules/
 npm-debug.log
 
+# Scripts and build outputs
+scripts/
+output/
+
 # Environment variables
 .env
 .env.local
