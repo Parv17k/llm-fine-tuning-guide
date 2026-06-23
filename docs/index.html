@@ -183,8 +183,8 @@
     }
 
     /* Inline code styling */
-    body.dark-theme .markdown-section code,
-    body.dark-theme code {
+    body.dark-theme .markdown-section :not(pre) > code,
+    body.dark-theme :not(pre) > code {
       background: #1a1a1a !important;
       color: #60a5fa !important;
       padding: 0.2em 0.4em !important;
@@ -199,11 +199,82 @@
       border: 1px solid #2a2a2a !important;
     }
 
+    /* Preserve Prism syntax highlighting colors */
     body.dark-theme .markdown-section pre code,
     body.dark-theme pre code {
       background: transparent !important;
-      color: #e5e5e5 !important;
       padding: 0 !important;
+    }
+
+    body.dark-theme .token.comment,
+    body.dark-theme .token.prolog,
+    body.dark-theme .token.doctype,
+    body.dark-theme .token.cdata {
+      color: #6a9955 !important;
+    }
+
+    body.dark-theme .token.punctuation {
+      color: #d4d4d4 !important;
+    }
+
+    body.dark-theme .token.property,
+    body.dark-theme .token.tag,
+    body.dark-theme .token.boolean,
+    body.dark-theme .token.number,
+    body.dark-theme .token.constant,
+    body.dark-theme .token.symbol {
+      color: #b5cea8 !important;
+    }
+
+    body.dark-theme .token.selector,
+    body.dark-theme .token.attr-name,
+    body.dark-theme .token.string,
+    body.dark-theme .token.char,
+    body.dark-theme .token.builtin,
+    body.dark-theme .token.inserted {
+      color: #ce9178 !important;
+    }
+
+    body.dark-theme .token.operator,
+    body.dark-theme .token.entity,
+    body.dark-theme .token.url,
+    body.dark-theme .language-css .token.string,
+    body.dark-theme .style .token.string {
+      color: #d4d4d4 !important;
+    }
+
+    body.dark-theme .token.atrule,
+    body.dark-theme .token.attr-value,
+    body.dark-theme .token.keyword {
+      color: #569cd6 !important;
+    }
+
+    body.dark-theme .token.function,
+    body.dark-theme .token.class-name {
+      color: #dcdcaa !important;
+    }
+
+    body.dark-theme .token.regex,
+    body.dark-theme .token.important,
+    body.dark-theme .token.variable {
+      color: #d16969 !important;
+    }
+
+    body.dark-theme .token.important,
+    body.dark-theme .token.bold {
+      font-weight: bold !important;
+    }
+
+    body.dark-theme .token.italic {
+      font-style: italic !important;
+    }
+
+    body.dark-theme .token.entity {
+      cursor: help !important;
+    }
+
+    body.dark-theme .token.deleted {
+      color: #f44336 !important;
     }
 
     /* Borders and dividers */
