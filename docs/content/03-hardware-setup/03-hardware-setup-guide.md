@@ -108,6 +108,40 @@ flowchart TB
 
 ## Consumer GPU Recommendations
 
+### GPU Selection Decision Tree
+
+```mermaid
+graph TD
+    A[Start: Choose GPU] --> B{Budget?}
+    B -->|<$500| C[RTX 3060 12GB<br/>$280]
+    B -->|$500-1000| D[RTX 4060 Ti 16GB<br/>$450]
+    B -->|>$1000| E{Model Size?}
+    
+    E -->|7B or smaller| F[RTX 4090 24GB<br/>$1,600]
+    E -->|13B-70B| G[Dual RTX 4090<br/>$3,200]
+    E -->|>70B| H[Cloud A100/H100]
+    
+    C --> I[QLoRA on 7B<br/>LoRA on 3B]
+    D --> J[LoRA on 7B<br/>QLoRA on 13B]
+    F --> K[Full FT on 7B<br/>LoRA on 13B]
+    G --> L[Full FT on 13B<br/>QLoRA on 70B]
+    H --> M[Cloud providers<br/>Lambda/AWS/GCP]
+    
+    style A fill:#2d333b
+    style B fill:#347d39
+    style C fill:#238636
+    style D fill:#238636
+    style E fill:#347d39
+    style F fill:#238636
+    style G fill:#238636
+    style H fill:#f9d371
+    style I fill:#1a1a1a
+    style J fill:#1a1a1a
+    style K fill:#1a1a1a
+    style L fill:#1a1a1a
+    style M fill:#1a1a1a
+```
+
 ### Budget Options (Under $500)
 
 | GPU | VRAM | Price | Best For |
@@ -146,6 +180,42 @@ flowchart TB
 ---
 
 ## Cloud GPU Options
+
+### Cloud Provider Selection Flowchart
+
+```mermaid
+graph TD
+    A[Need Cloud GPU] --> B{Priority?}
+    B -->|Lowest Cost| C[Vast.ai<br/>$0.15-2/hr<br/>Marketplace]
+    B -->|Best Value| D[Lambda Labs<br/>$0.50-4/hr<br/>ML-optimized]
+    B -->|Enterprise| E{Cloud Preference?}
+    B -->|Need TPU| F[GCP Vertex AI]
+    
+    E -->|AWS| G[AWS EC2<br/>g5.xlarge A10G]
+    E -->|Azure| H[Azure ML<br/>NCas T4 v3]
+    E -->|GCP| I[GCP Vertex AI<br/>a2-highgpu]
+    
+    C --> J[Variable quality<br/>Check reviews]
+    D --> K[Best for ML<br/>A100/H100]
+    G --> L[Most reliable<br/>Enterprise support]
+    H --> M[AD integration<br/>Corporate friendly]
+    I --> N[TPU access<br/>Free tier available]
+    
+    style A fill:#2d333b
+    style B fill:#347d39
+    style C fill:#238636
+    style D fill:#238636
+    style E fill:#347d39
+    style F fill:#f9d371
+    style G fill:#1a1a1a
+    style H fill:#1a1a1a
+    style I fill:#1a1a1a
+    style J fill:#1a1a1a
+    style K fill:#1a1a1a
+    style L fill:#1a1a1a
+    style M fill:#1a1a1a
+    style N fill:#1a1a1a
+```
 
 ### When to Use Cloud
 
@@ -544,6 +614,17 @@ job.run(machine_type='a2-highgpu-1g')
 | **AWS p4d** | A100 | $64.00 |
 | **Azure NC24ads** | A100 | $76.00 |
 | **GCP a2-highgpu-4g** | 4×A100 | $80.00 |
+
+### Break-Even Analysis: Buy vs. Cloud
+
+```mermaid
+xychart-beta
+    x-axis ["Month 1", "Month 3", "Month 6", "Month 12", "Month 18"]
+    y-axis "Cumulative Cost ($)" 0 --> 2500
+    line [30, 90, 180, 360, 540]
+    line [1600, 1600, 1600, 1600, 1600]
+```
+*Blue: Cloud ($15/hr, 2hrs/week), Yellow: RTX 4090 ($1600 one-time)*
 
 ### Break-Even: Buy vs. Cloud
 
