@@ -60,18 +60,20 @@ Updating all parameters of the pre-trained model.
 
 ```python
 from transformers import AutoModelForCausalLM, TrainingArguments
+from transformers import Trainer
 
-model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-3B-Instruct")
 
 # All parameters require gradients
 for param in model.parameters():
     param.requires_grad = True
 
 training_args = TrainingArguments(
-    output_dir="./mistral-finetuned",
+    output_dir="./llama32-finetuned",
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     fp16=True,  # Mixed precision
+    bf16=True,  # Use bf16 on newer GPUs (Ampere+)
 )
 
 # Standard training loop
@@ -144,12 +146,18 @@ flowchart LR
 
 ### PEFT Methods Comparison
 
-| Method | Trainable Params | Key Idea |
-|--------|------------------|----------|
-| **LoRA** | 0.1-1% | Low-rank matrices in attention |
-| **Prefix Tuning** | 0.01% | Learnable prompt tokens |
-| **Prompt Tuning** | 0.001% | Soft prompt embeddings |
-| **Adapter Layers** | 1-5% | Small MLPs between layers |
+| Method | Trainable Params | Key Idea | When to Use |
+|--------|------------------|----------|-------------|
+| **LoRA** | 0.1-1% | Low-rank matrices in attention | Standard, most popular |
+| **QLoRA** | ~0.1% | 4-bit quantized LoRA | Consumer GPUs, 70B models |
+| **AdaLoRA** | 0.1-1% | Adaptive rank allocation | Better than fixed-rank LoRA |
+| **IA3** | <0.01% | Scales existing weights | Minimal parameter change |
+| **DoRA** | 0.1-1% | Magnitude-decomposed LoRA | More stable convergence |
+| **LoKr** | <0.1% | Kronecker-factored LoRA | Very low parameter count |
+| **Delora** | 0.1-1% | Delorean LoRA, better rank | Improved over standard LoRA |
+| **Prefix Tuning** | 0.01% | Learnable prompt tokens | Non-parameter tuning |
+| **Prompt Tuning** | 0.001% | Soft prompt embeddings | Minimal change, limited power |
+| **Adapter Layers** | 1-5% | Small MLPs between layers | When LoRA underperforms |
 
 **LoRA is the most widely used** — good balance of efficiency and performance.
 
@@ -224,7 +232,7 @@ lora_config = LoraConfig(
 )
 
 # Apply to model
-model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-8B")
 model = get_peft_model(model, lora_config)
 
 # Check trainable parameters
@@ -332,7 +340,7 @@ bnb_config = BitsAndBytesConfig(
 
 # Load model in 4-bit
 model = AutoModelForCausalLM.from_pretrained(
-    "mistralai/Mistral-7B-v0.1",
+    "Qwen/Qwen3-8B",
     quantization_config=bnb_config,
     device_map="auto",
 )
@@ -391,22 +399,85 @@ model = get_peft_model(model, lora_config)
 | Near-LoRA performance | Slight accuracy drop |
 | Cost-effective | |
 
+### AdaLoRA: Adaptive Rank Allocation
+
+AdaLoRA dynamically adjusts the rank of LoRA matrices during training, allocating more capacity where needed.
+
+```python
+from peft import AdaLoraConfig
+
+config = AdaLoraConfig(
+    init_r=8,           # Initial rank
+    target_r=16,        # Target max rank
+    tinit=100,          # Warmup steps
+    tfinal=1000,        # Final step
+    delta_t=10,         # Rank update frequency
+    lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.1,
+)
+```
+
+**Advantages over LoRA:**
+- Better parameter efficiency
+- Automatically focuses on important weights
+- Typically 1-3% better than fixed-rank LoRA
+
+### DoRA: Magnitude-Decomposed LoRA
+
+DoRA decomposes weight updates into magnitude and direction, improving stability.
+
+```python
+from peft import LoraConfig
+
+# Use DoRA by setting init_lora_weights="dora"
+config = LoraConfig(
+    init_lora_weights="dora",  # Enable DoRA
+    r=8,
+    lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+)
+```
+
+**Advantages over LoRA:**
+- More stable convergence
+- Better for low-learning rate regimes
+- Equivalent to LoRA + adaptive initialization
+
+### IA3: Infinitely Small Adapters
+
+IA3 scales existing weights with learned vectors instead of adding matrices.
+
+```python
+from peft import IA3Config
+
+config = IA3Config(
+    target_modules=["key", "value", "feedback"],
+    feedforward_modules=["mlp"],
+)
+```
+
+**Advantages:**
+- ~100x fewer parameters than LoRA
+- Zero inference overhead (scales existing weights)
+- Good for very low-resource settings
+
 ---
 
 ## Method Comparison
 
 ### Comprehensive Comparison
 
-| Aspect | Full FT | LoRA | QLoRA |
-|--------|---------|------|-------|
-| **Trainable params** | 100% | 1-2% | 1-2% |
-| **GPU memory (7B)** | 40-80 GB | 16-24 GB | 6-12 GB |
-| **GPU memory (70B)** | 800+ GB | 120+ GB | 40-80 GB |
-| **Training speed** | Fastest | Fast | Slower |
-| **Performance** | 100% | 95-98% | 92-96% |
-| **Storage per task** | 14 GB | 200 MB | 200 MB |
-| **Hardware cost** | $100s/run | $10-30/run | $5-15/run |
-| **Best for** | Research | Production | Prototyping |
+| Aspect | Full FT | LoRA | QLoRA | AdaLoRA | DoRA | GraLoRA | TinyLoRA |
+|--------|---------|------|-------|---------|------|---------|----------|
+| **Trainable params** | 100% | 1-2% | 1-2% | 0.1-2% | 1-2% | 0.1-2% | ~13 params |
+| **GPU memory (7B)** | 40-80 GB | 16-24 GB | 6-12 GB | 16-24 GB | 16-24 GB | 16-24 GB | <1 GB |
+| **GPU memory (70B)** | 800+ GB | 120+ GB | 40-80 GB | 120+ GB | 120+ GB | 120+ GB | <10 GB |
+| **Training speed** | Fastest | Fast | Slower | Fast | Fast | Fast | Blazing fast |
+| **Performance** | 100% | 95-98% | 92-96% | 96-98% | 96-99% | 97-99% | RL-effective |
+| **Storage per task** | 14 GB | 200 MB | 200 MB | 200 MB | 200 MB | 200 MB | Bytes |
+| **Hardware cost** | $100s/run | $10-30/run | $5-15/run | $10-30/run | $10-30/run | $10-30/run | <$1/run |
+| **Best for** | Research | Production | Consumer GPUs | Best quality | Stable convergence | High-rank FT parity | RL training |
 
 ### Visual Comparison
 
@@ -416,7 +487,10 @@ quadrantChart
     x-axis "Low Performance" --> "High Performance"
     y-axis "Low Memory" --> "High Memory"
     "QLoRA": [0.75, 0.2]
+    "IA3": [0.70, 0.1]
     "LoRA": [0.85, 0.5]
+    "AdaLoRA": [0.88, 0.5]
+    "DoRA": [0.88, 0.55]
     "Full FT": [1.0, 0.9]
 ```
 
@@ -427,6 +501,10 @@ quadrantChart
 | **Full FT** | 8× A100 (80GB) | $32/hr | $32-100 |
 | **LoRA** | 1× A10G (24GB) | $1.50/hr | $5-20 |
 | **QLoRA** | 1× L4 (24GB) | $0.50/hr | $2-10 |
+| **GraLoRA** | 1× A10G (24GB) | $1.50/hr | $5-20 |
+| **TinyLoRA** | 1× RTX 4060 (8GB) | $0.30/hr | <$1 |
+| **DoRA** | 1× A10G (24GB) | $1.50/hr | $5-20 |
+| **PVeRA** | 1× RTX 4060 (8GB) | $0.30/hr | $1-5 |
 
 ---
 
@@ -493,5 +571,10 @@ flowchart TB
 
 - [LoRA: Low-Rank Adaptation](https://arxiv.org/abs/2106.09685) — Hu et al., 2021
 - [QLoRA: Efficient Finetuning](https://arxiv.org/abs/2305.14314) — Dettmers et al., 2023
+- [AdaLoRA: Adaptive Budget Allocation](https://arxiv.org/abs/2303.10512) — Zhang et al., 2023
+- [DoRA: Weight-Decomposed Low-Rank Adaptation](https://arxiv.org/abs/2402.09353) — Liu et al., 2024
+- [IA3: Infinitely Small Adapter Adaptation](https://arxiv.org/abs/2205.05638) — Liu et al., 2022
 - [PEFT Library Documentation](https://huggingface.co/docs/peft)
 - [BitsAndBytes Quantization](https://github.com/TimDettmers/bitsandbytes)
+- [Liger Kernel](https://github.com/linkedin/Liger-Kernel)
+- [Unsloth](https://github.com/unslothai/unsloth)

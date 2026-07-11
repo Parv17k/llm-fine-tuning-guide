@@ -1,7 +1,7 @@
-# LLM Architectures: From Transformer to Llama-3
+# LLM Architectures: From Transformer to 2026
 
 Understanding the evolution of LLM architectures helps you choose the right model and configure fine-tuning properly.
-
+> **You can skim over if it's too dense and read the details later when you need to make architecture decisions.**
 ---
 
 ## The Transformer Revolution (2017)
@@ -50,18 +50,58 @@ graph TB
 
 ### Original Transformer Architecture
 
+The 2017 Transformer had **two main parts**:
+
+```mermaid
+graph TB
+    subgraph Encoder["Encoder — Understanding"]
+        direction TB
+        EA[Self-Attention<br/>Sees entire input]
+        EF[Feed Forward<br/>Processes each token]
+    end
+
+    subgraph Decoder["Decoder — Generating"]
+        direction TB
+        DA1[Masked Attention<br/>Only sees past]
+        DA2[Cross Attention<br/>Looks at encoder]
+        DF[Feed Forward<br/>Produces output]
+    end
+
+    Input[Input Text] --> Encoder
+    Encoder -->|Context| Decoder
+    Decoder --> Output[Generated Text]
+
+    EA --> EF
+    DA1 --> DA2 --> DF
+
+    classDef encoder fill:#BBDEFB,stroke:#1565C0,stroke-width:3px,color:#0D47A1
+    classDef decoder fill:#FFE0B2,stroke:#E65100,stroke-width:3px,color:#E65100
+    classDef component fill:#CFD8DC,stroke:#455A64,stroke-width:1px,color:#263238
+
+    class Encoder encoder
+    class Decoder decoder
+    class EA,EF,DA1,DA2,DF component
 ```
-┌─────────────────────────────────────┐
-│  Decoder (Generative)               │
-│  ┌─────────────┐                    │
-│  │ Masked Attn │ ← Can only see past│
-│  └─────────────┘                    │
-│  ┌─────────────┐                    │
-│  │ Feed Forward│                    │
-│  └─────────────┘                    │
-│  (Repeat N times)                   │
-└─────────────────────────────────────┘
-```
+
+**What each part does**:
+
+| Component | What it does | Simple analogy |
+|-----------|--------------|----------------|
+| **Encoder** | Reads the entire input sequence and builds a rich understanding | Like reading a paragraph and fully grasping its meaning |
+| **Decoder** | Generates output one token at a time, using the encoder's understanding | Like writing an answer based on what you understood |
+| **Self-Attention** (Encoder) | Every input token looks at every other token | Like underlining related words in a sentence |
+| **Masked Attention** (Decoder) | Only looks at tokens generated so far | Like only reading what you've written before the current word |
+| **Cross-Attention** (Decoder) | Connects decoder to encoder output | Like glancing at your notes while writing |
+| **Feed Forward** | Processes each token independently through neural layers | Like refining your understanding of each word |
+
+**Why two parts?**
+- The **encoder** needs to see everything at once to understand context (bidirectional)
+- The **decoder** generates one word at a time, so it can only look backward (causal)
+
+**Modern LLMs simplified this**: Today's models (GPT, Llama, Qwen, etc.) use **decoder-only** architecture. They dropped the encoder entirely and just stack decoder blocks. This works because:
+- For generation, you only need the decoder's causal attention
+- It's simpler, faster, and scales better
+- The encoder was mainly useful for translation (input → output), but for pure text generation, the decoder alone is sufficient
 
 ---
 
@@ -223,10 +263,41 @@ graph TB
 |-------|------------|--------------|----------|
 | Llama-3.2-1B | 1B | 1 GB | Mobile, IoT |
 | Llama-3.2-3B | 3B | 2.5 GB | Edge devices |
+| Llama-3.2-11B-Vision | 11B | 8 GB | Multimodal (vision + text) |
+| Llama-3.2-90B-Vision | 90B | 60 GB | Multimodal production |
+
+### Llama-3.3 (2025) - The New 70B
+
+| Model | Parameters | VRAM (4-bit) | Best For |
+|-------|------------|--------------|----------|
+| Llama-3.3-70B-Instruct | 70B | 40 GB | Production SOTA |
+
+**Key improvements**:
+- Trained on more data with better quality filtering
+- Improved instruction following and reasoning
+- Better multilingual capabilities
+- Now the go-to choice for open-weight models above 13B
+
+### Llama-4-Scout-17B-16E (2025) - Meta's Llama 4
+
+**Architecture**:
+- 17B parameters, 16 expert layers
+- Multimodal (image-text-to-text)
+- Apache-style license with conditions
+
+| Model | Type | Parameters | Context | Modalities |
+|-------|------|------------|---------|------------|
+| Llama-4-Scout-17B-16E | Base + Experts | 17B | 128K | Text + Image |
+| Llama-4-Scout-17B-16E-Instruct | Fine-tuned | 17B | 128K | Text + Image |
+| Llama-4-Scout-17B-16E-Original | Base | 17B | 128K | Text + Image |
+
+**Why it matters**: Meta's first Llama 4 model — bridges the gap between Llama 3.3-70B and future larger Llama 4 models. Multimodal from the start.
+
+**Quantized variants**: FP8 (Nvidia), NVFP4, GGUF available via Unsloth
 
 ---
 
-## Mistral Family (2023-2024)
+## Mistral Family (2023) - Now Legacy
 
 ### Mistral-7B (2023)
 
@@ -247,7 +318,7 @@ Mistral-7B Architecture:
 └── Max position: 32768 (Sliding Window)
 ```
 
-**Why popular**: Best 7B model for fine-tuning
+**Note**: Largely superseded by Qwen3-8B and Llama-3.1-8B for fine-tuning, but still a capable model.
 
 ### Mixtral-8x7B (2023) - MoE Architecture
 
@@ -293,16 +364,69 @@ graph TB
 
 ## Other Notable Architectures
 
-### Qwen2 (Alibaba, 2024)
+### Qwen2 / Qwen2.5 (2024) - Alibaba
 
-**Models**: 0.5B, 1.5B, 7B, 14B, 57B, 72B
+**Models**: 0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B
 
 **Strengths**:
 - Best multilingual (Chinese, English, 29+ languages)
 - 128K context on large models
 - Strong coding capabilities
+- Apache 2.0 license (fully commercial)
 
-### Gemma-2 (Google, 2024)
+### Qwen3 (2025) - Previous Generation
+
+**Paper**: [arXiv:2505.09388](https://arxiv.org/abs/2505.09388)
+
+**Key innovations**:
+- **Dual-latency training**: Fast and thorough thinking modes
+- **NMoE (Nested Mixture of Experts)**: Efficient scaling
+- **119 languages** supported
+- **FP8 quantization** built-in
+
+| Model | Type | Parameters | Active | Context |
+|-------|------|------------|--------|---------|
+| Qwen3-0.6B | Dense | 0.6B | 0.6B | 32K |
+| Qwen3-4B | Dense | 4B | 4B | 32K |
+| Qwen3-8B | Dense | 8B | 8B | 32K |
+| Qwen3-30B-A3B | MoE | 30B | 3B | 32K |
+| Qwen3-235B-A22B | MoE | 235B | 22B | 32K |
+
+### Qwen3.5 (Feb 2025) - Bridge to Qwen3.6
+
+**Models**: 0.8B, 2B, 4B, 9B, 27B, 35B-A3B MoE, 122B-A10B MoE
+
+**Key improvements over Qwen3**:
+- Native multimodal (text + images) across all sizes
+- Better coding and reasoning
+- Improved instruction following
+
+### Qwen3.6 (2025) - Latest Generation
+
+**Paper**: [Qwen Blog](https://qwen.ai/blog?id=qwen3.6-35b-a3b)
+
+**Key innovations**:
+- **Gated DeltaNet + Gated Attention hybrid**: Novel hybrid architecture
+  - 10 × (3 × (Gated DeltaNet → MoE) → 1 × (Gated Attention → MoE))
+  - Combines linear attention efficiency with global awareness
+- **Agentic Coding**: Repository-level reasoning, frontend workflows
+- **Thinking Preservation**: Retain reasoning context from historical messages
+- **Extreme Context**: 262K native, extensible to 1M+ tokens
+- **Multimodal**: Text + images
+
+| Model | Type | Parameters | Active | Experts | Context |
+|-------|------|------------|--------|---------|---------|
+| Qwen3.6-27B | Dense | 27B | 27B | - | 262K |
+| Qwen3.6-35B-A3B | MoE | 35B total | 3B | 8 routed + 1 shared / 256 total | 262K |
+
+**Qwen3.6-Coder**: Specialized coding variants (community fine-tunes)
+**Qwen3.6-VL**: Multimodal vision-language variants
+
+**SWE-bench Verified**: Qwen3.6-35B-A3B scores 73.4 — competitive with top proprietary models
+
+**Why popular**: Apache 2.0 license, DeltaNet+Gated Attention hybrid architecture, extreme context, best-in-class agentic coding.
+
+### Gemma-2 (2024) - Google
 
 **Models**: 2B, 9B, 27B
 
@@ -311,7 +435,152 @@ graph TB
 - **Query normalization**: Training stability
 - **Knowledge distillation**: From larger models
 
-### Phi-3 (Microsoft, 2024)
+### Gemma-3 (2025) - Google
+
+**Models**: 270m, 1B, 4B, 12B, 27B
+
+**Key innovations**:
+- **Native multimodal**: Text + images in one model
+- **MoE variants**: Efficient scaling
+- **FP8 support**: For faster inference
+
+### Gemma-3n (2025) - Google
+
+**Models**: E2B, E4B
+
+**Key innovations**:
+- **Truly multimodal**: Text, Image, Audio, Video in one model
+- **Audio support**: Native automatic speech recognition and translation
+- **Video understanding**: Video-text-to-text
+- **Edge optimized**: Designed for on-device deployment
+
+### Gemma-4 (2025) - Latest Generation
+
+**Paper**: [Google Blog](https://blog.google/technology/ai/technology/developers-tools/gemma-4/) | [GitHub](https://github.com/google-gemma)
+
+**Key innovations**:
+- **Hybrid Attention**: Interleaves local sliding window with full global attention
+- **Unified KV for long context**: Proportional RoPE (p-RoPE)
+- **Native System Prompt**: Structured conversations with `system` role
+- **Agentic Capabilities**: Native function-calling support
+- **Configurable Thinking Modes**: Reasoning with controllable effort
+- **262K vocabulary**: Better tokenization
+- **Apache 2.0 License**: Fully open
+
+#### Dense Models
+
+| Property | E2B | E4B | 31B Dense |
+| :--- | :--- | :--- | :--- |
+| **Total Parameters** | 2.3B effective (5.1B with embeddings) | 4.5B effective (8B with embeddings) | 30.7B |
+| **Layers** | 35 | 42 | 60 |
+| **Sliding Window** | 512 tokens | 512 tokens | 1024 tokens |
+| **Context Length** | 128K tokens | 128K tokens | 256K tokens |
+| **Supported Modalities** | Text, Image, Audio | Text, Image, Audio | Text, Image |
+| **Vision Encoder** | ~150M | ~150M | ~550M |
+| **Audio Encoder** | ~300M | ~300M | No Audio |
+
+*The "E" in E2B and E4B stands for "effective" parameters. These models use **Per-Layer Embeddings (PLE)** — each decoder layer gets its own small embedding for every token, maximizing parameter efficiency.*
+
+#### MoE Model
+
+| Property | 26B A4B MoE |
+| :--- | :--- |
+| **Total Parameters** | 25.2B |
+| **Active Parameters** | 3.8B |
+| **Layers** | 30 |
+| **Sliding Window** | 1024 tokens |
+| **Context Length** | 256K tokens |
+| **Experts** | 8 active / 128 total + 1 shared |
+| **Supported Modalities** | Text, Image |
+| **Vision Encoder** | ~550M |
+
+*The "A" in 26B A4B stands for "active parameters". By only activating a 4B subset during inference, it runs nearly as fast as a 4B model while matching 31B dense performance.*
+
+**Why Gemma 4 matters**: Best balance of size, quality, and accessibility — from phones (E2B) to servers (31B), all Apache 2.0.
+
+### DeepSeek-V3 / R1 / V4 / V4-Pro (2024-2026) - DeepSeek
+
+**Paper**: [arXiv:2606.19348](https://arxiv.org/abs/2606.19348)
+
+| Model | Type | Params | Active | License | Key Feature |
+|-------|------|--------|--------|---------|-------------|
+| DeepSeek-V3 | MoE | 671B | 37B | MIT | Ultra-efficient MoE |
+| DeepSeek-R1 | MoE | 671B | 37B | MIT | Reasoning, chain-of-thought |
+| DeepSeek-V4-Flash | MoE | New | - | MIT | Latest with FP8 |
+| DeepSeek-V4-Pro | MoE | New | - | MIT | Flagship, highest quality |
+
+**DeepSeek-R1 innovation**: Test-time compute scaling — longer reasoning = better answers.
+
+**DeepSeek-V4-Pro**: The top-tier model in the V4 family, competing with Claude Opus 4.8 and GPT-5.5.
+
+### GLM-5 / GLM-5.1 / GLM-5.2 (2025-2026) - Zhihu/THUDM
+
+**Paper**: [arXiv:2602.15763](https://arxiv.org/abs/2602.15763) | [GLM-5.2 Paper](https://arxiv.org/abs/2603.12201)
+
+**Architecture**: DSA (Dynamic Sparse Attention) MoE
+
+| Model | Context | Key Feature |
+|-------|---------|-------------|
+| GLM-5 | 128K | First release with DSA MoE |
+| GLM-5.1 | 256K | Improved long-horizon tasks |
+| GLM-5.2 | 1M solid | IndexShare architecture, 2.9× FLOPs reduction at 1M context |
+
+**GLM-5.2 innovations**:
+- **IndexShare**: Reuses the same indexer across every four sparse attention layers
+- **Improved MTP layer**: Speculative decoding with 20% longer acceptance
+- **1M solid context**: Stable long-horizon work
+- **Flexible thinking effort**: Balance performance vs latency
+- **MIT License**: Fully open, no regional limits
+
+**Features**:
+- Strong Chinese + English
+- FP8 native support
+- DSA architecture for efficient attention
+- Competitive with Claude Opus 4.8 and GPT-5.5 on many benchmarks
+
+**Serve frameworks**: SGLang, vLLM, Transformers, Unsloth, KTransformers, Ascend NPU
+
+### Kimi K2 / K2.5 / K2.6 / K2.7-Code (2025-2026) - Moonshot AI
+
+**Paper**: [arXiv:2602.02276](https://arxiv.org/abs/2602.02276)
+
+| Model | Type | Total Params | Active | Context |
+|-------|------|-------------|--------|---------|
+| Kimi-K2-Instruct | MoE | ~462B | 32B | 256K |
+| Kimi-K2.5 | MoE | 1T | 32B | 256K |
+| Kimi-K2.6 | MoE | 1T | 32B | 256K |
+| Kimi-K2.7-Code | MoE | 1T | 32B | 256K |
+
+**Key innovations**:
+- **1 Trillion total params / 32B active** — largest efficient open MoE
+- **MLA (Multi-Token Latent Attention)**: Memory-efficient attention
+- **Native Multimodal**: Vision + language, agentic tool use grounded in visuals
+- **Agent Swarm**: Self-directed, coordinated swarm-like execution
+- **Coding with Vision**: Generate code from UI designs, video workflows
+- **MoonViT**: 400M parameter vision encoder
+- **Modified MIT License**: Commercial-friendly
+
+**Why Kimi K2.5 matters**: The 1T-parameter model with only 32B active is a breakthrough — provides near-proprietory quality at a fraction of the compute cost.
+
+### GPT-OSS (2025) - OpenAI
+
+**Models**: 20B, 120B
+
+**Significance**: Open-weight release of GPT capabilities
+- Apache 2.0 license
+- Trained on high-quality data
+- Competitive with proprietary models
+
+### SmolLM2 (2025) - Hugging Face
+
+**Models**: 135M
+
+**Features**:
+- Tiny models for edge/embedded
+- Surprisingly capable for size
+- Great for learning and experimentation
+
+### Phi-3.5 (2024) - Microsoft
 
 **Models**: 3.8B (Mini), 7B (Small), 14B (Medium)
 
@@ -327,11 +596,20 @@ graph TB
 |--------------|------|----------|-------------|
 | **BERT** | Encoder | Classification, NER | Full FT |
 | **GPT-2/3** | Decoder | Generation | LoRA/QLoRA |
-| **Llama-2/3** | Decoder | Chat, Code, General | LoRA/QLoRA |
-| **Mistral-7B** | Decoder | Best 7B for FT | LoRA/QLoRA |
-| **Mixtral** | MoE Decoder | High quality, fast | Full FT (hard) |
-| **Qwen2** | Decoder | Multilingual | LoRA/QLoRA |
-| **Phi-3** | Decoder | Edge deployment | Full FT |
+| **Llama-3.1/3.3** | Decoder | Chat, Code, General | LoRA/QLoRA |
+| **Llama-4-Scout** | Decoder + Experts | Multimodal (early Llama 4) | LoRA/QLoRA |
+| **Qwen3 / 3.5 / 3.6** | Decoder / MoE | Multilingual, Coding, Agentic | LoRA/QLoRA |
+| **Qwen3.6-35B-A3B** | MoE (DeltaNet+Gated) | Agentic coding, 1M context | LoRA/QLoRA |
+| **DeepSeek-R1/V4/V4-Pro** | MoE Decoder | Reasoning | LoRA/QLoRA (harder) |
+| **Gemma-3 / 3n / 4** | Decoder (MoE options) | Multimodal, agentic | LoRA/QLoRA |
+| **Gemma-4-26B-A4B** | MoE (26B/3.8B) | Best MoE, fast inference | LoRA/QLoRA |
+| **GLM-5.2** | DSA MoE | Long-horizon, 1M context | Full FT (hard) |
+| **Kimi-K2.5/K2.6** | MoE (1T/32B) | Near-proprietory quality | LoRA/QLoRA (harder) |
+| **GPT-OSS** | Decoder | Open-weight OpenAI | LoRA/QLoRA |
+| **Mistral-7B** | Decoder | Legacy 7B | LoRA/QLoRA |
+| **Mixtral** | MoE Decoder | High quality | Full FT (hard) |
+| **SmolLM2** | Decoder | Edge, learning | Full FT |
+| **Phi-3.5** | Decoder | Edge deployment | Full FT |
 
 ---
 
@@ -342,10 +620,14 @@ timeline
     title Attention Evolution
     2017 : Multi-Head Attention<br/>(Original Transformer)
     2019 : Causal Attention<br/>(GPT-2)
-    2022 : Flash Attention<br/>(Efficient exact attention)
+    2022 : Flash Attention 1/2<br/>(Efficient exact attention)
     2023 : Grouped Query<br/>(Llama-2, Mistral)
     2023 : Sliding Window<br/>(Mistral-7B)
-    2024 : Multi-Token<br/>(Mistral-Nemo)
+    2024 : Multi-Token<br/>(Qwen2.5, Mistral-Nemo)
+    2024 : Flash Attention 3<br/>(Further optimization)
+    2025 : MLA<br/>(DeepSeek, Kimi-K2 - Memory Efficient)
+    2025 : DSA<br/>(GLM-5 - Dynamic Sparse Attention)
+    2025 : DeltaNet + Gated<br/>(Qwen3.6 - Hybrid linear + global)
 ```
 
 ### Multi-Head Attention (MHA)
@@ -388,36 +670,48 @@ Memory: Minimal, but quality drop
 ```mermaid
 graph TD
     A[Start: Choose Model] --> B{Use Case?}
-    B -->|Chat/General| C[Llama-3.1-8B/70B]
-    B -->|Code| D[CodeLlama, StarCoder]
-    B -->|Multilingual| E[Qwen2, Aya]
-    B -->|Edge/Mobile| F[Phi-3, Llama-3.2-1B]
-    B -->|Research| G[Mistral, Mixtral]
+    B -->|Chat/General| C[Qwen3.6-35B-A3B / Llama-3.3-70B]
+    B -->|Code| D[Qwen3.6-35B-A3B / Qwen3.6-27B]
+    B -->|Multilingual| E[Qwen3.6-27B, Qwen3.6-35B-A3B]
+    B -->|Edge/Mobile| F[Gemma-4-E2B, Gemma-4-E4B, Qwen3.6-27B]
+    B -->|Reasoning| G[GLM-5.2, DeepSeek-V4-Pro]
+    B -->|Multimodal| H[Gemma-4-31B, Kimi-K2.5, Llama-4-Scout]
+    B -->|Long Context| I[GLM-5.2-1M, Qwen3.6-27B-262K]
     
-    C --> H{VRAM Budget?}
-    H -->|<8GB| I[Llama-3.2-3B]
-    H -->|8-24GB| J[Llama-3.1-8B]
-    H -->|>24GB| K[Llama-3.1-70B]
+    C --> J{VRAM Budget?}
+    J -->|<4GB| K[Gemma-4-E2B / Gemma-4-E4B]
+    J -->|4-16GB| L[Llama-4-Scout-17B / Qwen3.6-27B]
+    J -->|16-48GB| M[Gemma-4-26B-A4B / Qwen3.6-35B-A3B]
+    J -->|48-100GB| N[Llama-3.3-70B / Kimi-K2.5 quantized]
+    J -->|>100GB| O[DeepSeek-V4-Pro / GLM-5.2 / Kimi-K2.6]
     
     style A fill:#2d333b
     style B fill:#347d39
     style C fill:#238636
     style F fill:#238636
-    style I fill:#1a1a1a
-    style J fill:#1a1a1a
+    style H fill:#238636
+    style I fill:#238636
     style K fill:#1a1a1a
+    style L fill:#1a1a1a
+    style M fill:#1a1a1a
+    style N fill:#1a1a1a
+    style O fill:#1a1a1a
 ```
 
 ---
 
 ## Key Takeaways
 
-1. **Decoder-only** (GPT/Llama/Mistral) = best for generation/fine-tuning
+1. **Decoder-only** (GPT/Llama/Qwen) = best for generation/fine-tuning
 2. **GQA** = faster inference, less VRAM (Llama-2-70B, Mistral-7B)
-3. **MoE** = more capacity, complex deployment (Mixtral)
-4. **Sliding window** = long context, efficient (Mistral-7B)
-5. **Llama-3** = current sweet spot for fine-tuning
-6. **Phi-3** = best for edge/mobile deployment
+3. **MoE** = more capacity, complex deployment (Gemma-4-26B-A4B, Kimi-K2.5, Qwen3.6-35B-A3B)
+4. **Sliding window** = long context, efficient (Mistral-7B, Gemma-4)
+5. **MLA / DSA / DeltaNet** = next-gen efficient attention (2025+)
+6. **Qwen3.6-35B-A3B** = current sweet spot for open-weight fine-tuning (Apache 2.0)
+7. **Gemma-4-26B-A4B** = best MoE balance (26B total / 3.8B active, Apache 2.0)
+8. **Llama-4-Scout-17B-16E** = Meta's first multimodal Llama 4
+9. **GLM-5.2** = best long-horizon reasoning (1M context, MIT)
+10. **Kimi-K2.5** = largest efficient open MoE (1T total / 32B active)
 
 ---
 
@@ -425,12 +719,45 @@ graph TD
 
 Now you understand:
 - Transformer architecture and why it dominates
-- Evolution from BERT → GPT → Llama → Mistral
-- Key innovations (GQA, RoPE, SwiGLU, MoE)
+- Evolution from BERT → GPT → Llama → Mistral → Qwen → DeepSeek → 2026
+- Key innovations (GQA, RoPE, SwiGLU, MoE, NMoE, DSA, MLA, DeltaNet)
 - How to choose the right model for your use case
+- The 2026 model landscape and licensing
 
 This knowledge helps you:
 - Select appropriate base models
 - Understand fine-tuning configurations
 - Debug architecture-specific issues
 - Make informed trade-offs (quality vs. speed vs. cost)
+
+---
+
+## Quick Model Reference (2026)
+
+### Best Models by Use Case
+
+| Use Case | Recommended Model | Why |
+|----------|------------------|-----|
+| **Best overall open** | Qwen3.6-35B-A3B | Apache 2.0, DeltaNet+Gated, agentic coding |
+| **Best 7-14B** | Llama-4-Scout-17B-16E | Multimodal Llama 4, 17B with experts |
+| **Best MoE** | Gemma-4-26B-A4B | 26B/3.8B, fast inference, Apache 2.0 |
+| **Best coding** | Qwen3.6-35B-A3B | SWE-bench Verified 73.4, agentic |
+| **Best reasoning** | GLM-5.2 / DeepSeek-V4-Pro | 1M context, SOTA reasoning |
+| **Best edge/small** | Gemma-4-E2B, Qwen3.6-27B | Phone to laptop deployment |
+| **Best multilingual** | Qwen3.6-27B | 119+ languages, 262K context |
+| **Best multimodal** | Gemma-4-31B, Kimi-K2.5 | Text+Image+Audio+Video |
+| **Best budget** | Qwen3.6-27B, Gemma-4-12B | Great quality-to-size ratio |
+
+### License Quick Reference
+
+| Model Family | License | Commercial Use |
+|-------------|---------|----------------|
+| Llama-3.3 / Llama-4-Scout | Meta Community / Llama 4 | Yes (with conditions) |
+| Qwen3 / 3.5 / 3.6 | Apache 2.0 | Yes (unrestricted) |
+| Gemma-3 / 3n / 4 | Apache 2.0 | Yes (unrestricted) |
+| DeepSeek-R1/V4/V4-Pro | MIT | Yes (unrestricted) |
+| GLM-5 / 5.2 | MIT | Yes (unrestricted) |
+| Kimi-K2.5/K2.6 | Modified MIT | Yes (with conditions) |
+| GPT-OSS | Apache 2.0 | Yes (unrestricted) |
+| Mistral-7B | Apache 2.0 | Yes (unrestricted) |
+| SmolLM2 | Apache 2.0 | Yes (unrestricted) |

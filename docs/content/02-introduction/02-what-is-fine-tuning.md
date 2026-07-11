@@ -101,9 +101,22 @@ flowchart TB
         A2[Few-Shot<br/>In-context learning]
     end
     
-    subgraph Light["Light Adaptation"]
+    subgraph Light["Light Adaptation (PEFT)"]
         B1[LoRA<br/>Low-rank adapters]
-        B2[Prefix Tuning<br/>Learnable prompts]
+        B2[QLoRA<br/>4-bit LoRA]
+        B3[AdaLoRA<br/>Adaptive rank]
+        B4[IA3<br/>Influence-attended]
+        B5[DoRA<br/>Magnitude-decomposed]
+    end
+    
+    subgraph Alignment["Alignment / Post-Training"]
+        D1[SFT<br/>Supervised Fine-Tuning]
+        D2[DPO<br/>Direct Preference Optimization]
+        D3[ORPO<br/>Odds Ratio Preference]
+        D4[KTO<br/>Kahneman-Tversky Optimization]
+        D5[GRPO<br/>Group Relative Policy Opt.]
+        D6[RLOO<br/>Reward Likelihood Opt.]
+        D7[GMPO<br/>Geometric-Mean Policy Opt.]
     end
     
     subgraph Full["Full Adaptation"]
@@ -112,10 +125,12 @@ flowchart TB
     end
     
     NoFT --> Light
-    Light --> Full
+    Light --> Alignment
+    Alignment --> Full
     
     style NoFT fill:#e8f5e9
     style Light fill:#fff9c4
+    style Alignment fill:#e1bee7
     style Full fill:#ffccbc
 ```
 
@@ -163,10 +178,30 @@ model = get_peft_model(base_model, config)
 
 **Parameters:** ~0.1% of original model.
 
+**Newer PEFT variants (PEFT 0.19+):**
+- **AdaLoRA** — Adaptive rank allocation (better than fixed-rank LoRA)
+- **IA3** — Infinitely small adapters, scales existing weights
+- **DoRA** — Magnitude-decomposed LoRA, more stable convergence
+- **GraLoRA** — Granular LoRA, better full FT parity at high ranks
+- **TinyLoRA** — Extreme parameter efficiency (~13 params), great for RL
+- **Lily** — Cross-layer parameter sharing, higher ranks with low param count
+- **PeaNut** — Neural network tweakers, maximum expressivity
+- **DeLoRA** — Decoupled angle/magnitude, prevents divergence
+- **RoAd** — 2D Rotary Adaptation, fast inference with mixed adapters
+- **ALoRA** — Activated LoRA, selective adapter use per token
+- **WaveFT** — Wavelet domain updates, preserves subject fidelity
+- **PVeRA** — Probabilistic vector-based, extends VeRA with sampling
+- **PSOFT** — Principal subspace adaptation, preserves base model structure
+- **Cartridges** — Context compression, long context → short context
+- **BD-LoRA** — Block-diagonal for tensor parallel serving
+- **LoKr** — Kronecker-factored LoRA, fewer parameters
+- **AdaMSS** — Adaptive multi-subspace, dynamic budget allocation
+
 **When to use:**
 - Domain adaptation
 - Style transfer
 - Limited compute (single GPU)
+- Multi-task deployment (swap adapters)
 
 ### Full Adaptation
 
@@ -444,8 +479,8 @@ flowchart TB
 
 3. **What are my constraints?**
    - Budget < $100 → Prompting
-   - Single GPU → LoRA/QLoRA
-   - Multi-GPU cluster → Full fine-tuning
+   - Single GPU → LoRA/QLoRA/Dora
+   - Multi-GPU cluster → Full fine-tuning / AsyncGRPO
 
 4. **How will I measure success?**
    - Accuracy on test set
@@ -466,7 +501,7 @@ flowchart TB
 
 **Fine-tuning approach:**
 - Collected 5,000 annotated examples
-- Fine-tuned Llama-3-8B with LoRA
+- Fine-tuned Qwen3-8B with DoRA (PEFT 0.19)
 - Training cost: $150
 - Inference: Self-hosted, $300/month
 
@@ -485,7 +520,7 @@ flowchart TB
 
 **Fine-tuning approach:**
 - Collected 10K support conversations
-- Fine-tuned Mistral-7B-Instruct
+- Fine-tuned Mistral-Small-24B-Instruct-2501 with DPO
 - Added RAG for product information
 
 **Result:**
@@ -503,7 +538,7 @@ flowchart TB
 - Frequent guideline updates
 
 **Solution:** RAG + Fine-tuning
-- Fine-tuned for medical communication style
+- Fine-tuned for medical communication style with DPO
 - RAG for current guidelines
 - Human review for edge cases
 
@@ -528,3 +563,15 @@ flowchart TB
 - [When to Fine-Tune vs. Prompt](https://arxiv.org/abs/2305.11170) — Li et al., 2023
 - [RAG vs. Fine-Tuning](https://arxiv.org/abs/2307.11866) — Gao et al., 2023
 - [LoRA: Low-Rank Adaptation](https://arxiv.org/abs/2106.09685) — Hu et al., 2021
+- [QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314) — Dettmers et al., 2023
+- [AdaLoRA: Adaptive Budget Allocation](https://arxiv.org/abs/2303.10512) — Zhang et al., 2023
+- [DoRA: Weight-Decomposed Low-Rank Adaptation](https://arxiv.org/abs/2402.09353) — Liu et al., 2024
+- [GraLoRA: Granular Low-Rank Adaptation](https://arxiv.org/abs/2505.20355) — 2025
+- [TinyLoRA: Learning to Reason in 13 Parameters](https://arxiv.org/abs/2602.04118) — 2026
+- [Lily: Low-Rank Interconnected Adaptation](https://arxiv.org/abs/2407.09946) — 2024
+- [PeaNuT: Parameter-Efficient Adaptation with Weight-aware Neural Tweakers](https://arxiv.org/abs/2410.01870) — 2024
+- [DPO: Direct Preference Optimization](https://arxiv.org/abs/2305.18290) — Rafailov et al., 2023
+- [ORPO: Odds Ratio Preference Optimization](https://arxiv.org/abs/2402.01714) — Meng et al., 2024
+- [KTO: Kahneman-Tversky Optimization](https://arxiv.org/abs/2402.01306) — Yehuda et al., 2024
+- [GRPO: Group Relative Policy Optimization](https://arxiv.org/abs/2402.03300) — Shao et al., 2024
+- [GMPO: Geometric-Mean Policy Optimization](https://huggingface.co/papers/2507.20673) — 2025

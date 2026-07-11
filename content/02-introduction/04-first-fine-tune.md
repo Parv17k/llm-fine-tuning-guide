@@ -1,8 +1,8 @@
 # Your First Fine-Tune
 
-> **Lesson 04** — A minimal end-to-end example using TinyLlama.
+> **Lesson 04** — A minimal end-to-end example using Qwen3-8B.
 
-This guide walks you through fine-tuning a small model in under 30 minutes. We'll use TinyLlama (1.1B parameters) because it fits on any GPU and trains quickly.
+This guide walks you through fine-tuning a small model in under 30 minutes. We'll use Qwen3-8B because it fits on any GPU, trains quickly, and delivers strong performance for its size.
 
 ---
 
@@ -12,7 +12,7 @@ This guide walks you through fine-tuning a small model in under 30 minutes. We'l
 2. [Prerequisites](#prerequisites)
 3. [Step 1: Setup](#step-1-setup)
 4. [Step 2: Prepare the Dataset](#step-2-prepare-the-dataset)
-5. [Step 3: Configure LoRA](#step-3-configure-lora)
+5. [Step 3: Configure PEFT](#step-3-configure-peft)
 6. [Step 4: Training](#step-4-training)
 7. [Step 5: Evaluation](#step-5-evaluation)
 8. [Step 6: Inference](#step-6-inference)
@@ -64,11 +64,10 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    TrainingArguments,
     BitsAndBytesConfig,
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from trl import SFTTrainer
+from trl import SFTConfig, SFTTrainer
 from datasets import load_dataset
 
 # Set device
@@ -78,16 +77,18 @@ print(f"Using device: {device}")
 
 ### Model Selection
 
-We'll use TinyLlama-1.1B because:
+We'll use Qwen3-8B because:
 
 | Model | Parameters | VRAM Required | Training Time |
 |-------|------------|---------------|---------------|
-| **TinyLlama-1.1B** | 1.1B | 4 GB | 20 min |
-| Phi-2-2.7B | 2.7B | 8 GB | 45 min |
-| Mistral-7B | 7B | 16 GB | 2 hours |
+| **Qwen3-8B** | 8B | 12 GB | 25-40 min |
+| SmolLM2-1.7B-Instruct | 1.7B | 4 GB | 15 min |
+| Gemma-4-12B-it | 12B | 16 GB | 30-45 min |
+| Llama-4-Scout-17B-16E | 17B (MoE) | 24 GB | 60-90 min |
+| Qwen3.5-35B-A3B | 35B (3B active) | 16 GB | 45-60 min |
 
 ```python
-model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+model_name = "Qwen/Qwen3-8B"  # or "google/gemma-4-12B-it", "meta-llama/Llama-4-Scout-17B-16E-Instruct"
 ```
 
 ---
@@ -174,7 +175,7 @@ if use_qlora:
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=torch.bfloat16,  # bfloat16 recommended over float16
         bnb_4bit_use_double_quant=True,
     )
 else:
@@ -188,17 +189,16 @@ model = AutoModelForCausalLM.from_pretrained(
     model_name,
     quantization_config=bnb_config,
     device_map="auto",
-    trust_remote_code=True,
 )
 model.config.use_cache = False  # Required for training
-model.config.pretraining_tp = 1
 ```
 
 ### Prepare for Training
 
 ```python
 # Gradient checkpointing for memory efficiency
-model = prepare_model_for_kbit_training(model) if use_qlora else model
+if use_qlora:
+    model = prepare_model_for_kbit_training(model)
 ```
 
 ### LoRA Configuration
@@ -208,18 +208,18 @@ lora_config = LoraConfig(
     r=8,                          # Rank
     lora_alpha=32,                # Alpha scaling
     target_modules=[              # Modules to adapt
-        "q_proj", "k_proj", 
+        "q_proj", "k_proj",
         "v_proj", "o_proj",
+        "gate_proj", "up_proj", "down_proj",  # Add MLP for full adaptation
     ],
     lora_dropout=0.05,
     bias="none",
-    task_type="CAUSAL_LM",
+    use_dora=True,  # Optional: Use DoRA for more stable convergence
 )
 
 # Apply LoRA
 model = get_peft_model(model, lora_config)
 model.print_trainable_parameters()
-# Output: trainable params: 4,194,304 || all params: 1,100,000,000 || trainable%: 0.38%
 ```
 
 ---
@@ -229,8 +229,9 @@ model.print_trainable_parameters()
 ### Training Arguments
 
 ```python
-training_args = TrainingArguments(
-    output_dir="./tinyllama-formal",
+# In TRL v1, use SFTConfig instead of TrainingArguments
+training_args = SFTConfig(
+    output_dir="./qwen3-formal",
     num_train_epochs=3,
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
@@ -241,21 +242,24 @@ training_args = TrainingArguments(
     logging_steps=10,
     save_strategy="epoch",
     fp16=not use_qlora,  # QLoRA handles its own precision
+    bf16=use_qlora,  # Use bf16 for QLoRA compute
     report_to="none",     # Set to "wandb" for experiment tracking
+    packing=True,  # Pack sequences for faster training
+    max_seq_length=512,  # Max sequence length
+    use_liger_kernel=False,  # Set True for 20-30% VRAM savings (requires liger-kernel)
 )
 ```
 
 ### Initialize Trainer
 
 ```python
+# In TRL v1.7+, pass model and tokenizer directly
 trainer = SFTTrainer(
     model=model,
-    args=training_args,
+    tokenizer=tokenizer,
     train_dataset=dataset,
     dataset_text_field="text",
-    max_seq_length=max_seq_length,
-    tokenizer=tokenizer,
-    packing=False,  # Set to True for variable-length sequences
+    training_args=training_args,
 )
 ```
 
@@ -267,7 +271,7 @@ trainer.train()
 print("Training complete!")
 
 # Save the model
-trainer.save_model("./tinyllama-formal")
+trainer.save_model("./qwen3-formal")
 ```
 
 ### Expected Training Output
@@ -385,12 +389,12 @@ print(f"BLEU Score: {bleu_score['bleu']:.3f}")
 
 ```python
 # Save adapter weights
-model.save_pretrained("./tinyllama-formal-adapter")
-tokenizer.save_pretrained("./tinyllama-formal-adapter")
+model.save_pretrained("./qwen3-formal-adapter")
+tokenizer.save_pretrained("./qwen3-formal-adapter")
 
 # Save base model info for later loading
 import json
-with open("./tinyllama-formal-adapter/config.json", "w") as f:
+with open("./qwen3-formal-adapter/config.json", "w") as f:
     json.dump({
         "base_model": model_name,
         "lora_config": {
@@ -416,7 +420,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
 # Load adapter
 model = PeftModel.from_pretrained(
     base_model,
-    "./tinyllama-formal-adapter",
+    "./qwen3-formal-adapter",
 )
 
 # Now use for inference
@@ -428,12 +432,12 @@ print(response)
 
 ```python
 # Push to Hub
-model.push_to_hub("your-username/tinyllama-formal")
-tokenizer.push_to_hub("your-username/tinyllama-formal")
+model.push_to_hub("your-username/qwen3-formal")
+tokenizer.push_to_hub("your-username/qwen3-formal")
 
 # Now others can use:
 # from peft import PeftModel
-# model = PeftModel.from_pretrained(base_model, "your-username/tinyllama-formal")
+# model = PeftModel.from_pretrained(base_model, "your-username/qwen3-formal")
 ```
 
 ---
@@ -445,24 +449,25 @@ Here's the complete script in one file:
 ```python
 #!/usr/bin/env python3
 """
-Fine-tune TinyLlama for casual → formal text conversion.
-Run time: ~25 minutes on RTX 3060
+Fine-tune Qwen3-8B for casual → formal text conversion.
+Run time: ~15 minutes on RTX 3060 (12GB VRAM)
+
+Requirements: transformers>=5.13, peft>=0.19, trl>=1.7
 """
 
 import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    TrainingArguments,
     BitsAndBytesConfig,
 )
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from trl import SFTTrainer
+from trl import SFTConfig, SFTTrainer
 from datasets import Dataset
 
 # ============ Configuration ============
-MODEL_NAME = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-OUTPUT_DIR = "./tinyllama-formal"
+MODEL_NAME = "Qwen/Qwen3-8B"  # or "google/gemma-4-12B-it", "meta-llama/Llama-4-Scout-17B-16E-Instruct"
+OUTPUT_DIR = "./qwen3-formal"
 USE_QLORA = True  # Set False for 16GB+ VRAM
 NUM_EPOCHS = 3
 BATCH_SIZE = 4
@@ -495,7 +500,7 @@ if USE_QLORA:
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_compute_dtype=torch.bfloat16,
         bnb_4bit_use_double_quant=True,
     )
 else:
@@ -506,10 +511,8 @@ model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
     quantization_config=bnb_config,
     device_map="auto",
-    trust_remote_code=True,
 )
 model.config.use_cache = False
-model.config.pretraining_tp = 1
 
 if USE_QLORA:
     model = prepare_model_for_kbit_training(model)
@@ -518,10 +521,11 @@ if USE_QLORA:
 lora_config = LoraConfig(
     r=8,
     lora_alpha=32,
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
+                    "gate_proj", "up_proj", "down_proj"],
     lora_dropout=0.05,
     bias="none",
-    task_type="CAUSAL_LM",
+    use_dora=True,  # Optional: enable DoRA for stable convergence
 )
 
 model = get_peft_model(model, lora_config)
@@ -543,7 +547,7 @@ dataset = Dataset.from_list(training_data)
 dataset = dataset.map(format_instruction)
 
 # ============ Training ============
-training_args = TrainingArguments(
+training_args = SFTConfig(
     output_dir=OUTPUT_DIR,
     num_train_epochs=NUM_EPOCHS,
     per_device_train_batch_size=BATCH_SIZE,
@@ -555,17 +559,20 @@ training_args = TrainingArguments(
     logging_steps=10,
     save_strategy="epoch",
     fp16=not USE_QLORA,
+    bf16=USE_QLORA,
     report_to="none",
+    packing=True,  # Pack sequences for faster training
+    max_seq_length=512,
+    use_liger_kernel=False,  # Set True if you have liger-kernel installed
 )
 
+# In TRL v1.7+, pass model and tokenizer directly
 trainer = SFTTrainer(
     model=model,
-    args=training_args,
+    tokenizer=tokenizer,
     train_dataset=dataset,
     dataset_text_field="text",
-    max_seq_length=256,
-    tokenizer=tokenizer,
-    packing=False,
+    training_args=training_args,
 )
 
 print("Starting training...")
@@ -611,7 +618,7 @@ for inp in test_inputs:
 
 Run it:
 ```bash
-python fine_tune_tinyllama.py
+python fine_tune_qwen3.py
 ```
 
 ---
@@ -619,27 +626,33 @@ python fine_tune_tinyllama.py
 ## Next Steps
 
 1. **Expand the dataset** — 500+ examples for production quality
-2. **Try larger models** — Mistral-7B for better results
-3. **Add evaluation metrics** — BLEU, ROUGE, human evaluation
-4. **Deploy the model** — FastAPI, vLLM, or TGI
-5. **Read [Module 04: Data Engineering](../04-data-engineering/)** — Building datasets
-
----
+2. **Try larger models** — Qwen3.5-35B-A3B (MoE) or gemma-4-31B-it for better results
+3. **Add alignment** — DPO, ORPO, KTO, GRPO, or GMPO for preference optimization
+4. **Add evaluation metrics** — BLEU, ROUGE, human evaluation
+5. **Deploy the model** — vLLM 0.11+, TGI, or llama.cpp (GGUF)
+6. **Read [Module 04: Data Engineering](../04-data-engineering/)** — Building datasets
 
 ## Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
-| **CUDA OOM** | Reduce batch_size to 1, increase gradient_accumulation_steps |
-| **Loss not decreasing** | Increase learning rate, check data formatting |
-| **Garbage outputs** | Verify tokenizer, check for special token issues |
-| **Slow training** | Enable `bf16` if GPU supports it, use `packing=True` |
+| **CUDA OOM** | Reduce batch_size to 1, increase gradient_accumulation_steps, enable QLoRA |
+| **Loss not decreasing** | Increase learning rate, check data formatting, verify tokenizer |
+| **Garbage outputs** | Verify tokenizer, check for special token issues, use correct chat template |
+| **Slow training** | Enable `bf16` if GPU supports it, use `packing=True`, try `use_liger_kernel=True` |
+| **Import errors** | Ensure transformers>=5.13, peft>=0.19, trl>=1.7 |
 
 ---
 
 ## References
 
-- [TinyLlama Model Card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)
-- [TRL Documentation](https://huggingface.co/docs/trl)
-- [PEFT Quickstart](https://huggingface.co/docs/peft/quicktour)
+- [Qwen3 Technical Report](https://github.com/QwenLM/Qwen3)
+- [Qwen3.5 Technical Report](https://github.com/QwenLM/Qwen3.5)
+- [Qwen3.6 Technical Report](https://github.com/QwenLM/Qwen3.6)
+- [Gemma 4 Technical Report](https://huggingface.co/google/gemma-4-12B-it)
+- [TRL Documentation](https://huggingface.co/docs/trl) — TRL v1.7, GRPO, DPO, ORPO, KTO, GMPO
+- [PEFT Quickstart](https://huggingface.co/docs/peft/quicktour) — 40+ adapter methods incl. GraLoRA, TinyLoRA
 - [SFTTrainer API Reference](https://huggingface.co/docs/trl/sft_trainer)
+- [Liger Kernel](https://github.com/linkedin/Liger-Kernel) — Memory-efficient fused kernels
+- [Unsloth](https://github.com/unslothai/unsloth) — 2x faster training, 70% less VRAM
+- [vLLM Serving](https://docs.vllm.ai) — Continuous batching, FP8 support

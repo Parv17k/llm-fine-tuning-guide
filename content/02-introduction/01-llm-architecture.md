@@ -1,8 +1,10 @@
 # Understanding LLM Architecture
 
-> **Lesson 01** — Transformer architecture refresher, attention mechanisms, and model types.
+> **Lesson 02** — Transformer architecture refresher, attention mechanisms, and model types.
 
 This guide provides the architectural knowledge you need to fine-tune effectively. You don't need to derive attention formulas, but you do need to understand what each component does and how it affects training.
+
+> **Beginner note**: If you're new to neural networks, read [Module 00: Neural Networks](../00-neural-networks-basics/) first for a beginner-friendly introduction to tokenization, embeddings, attention, and transformers. This lesson goes deeper with code examples and fine-tuning-specific details.
 
 ---
 
@@ -680,7 +682,7 @@ config = LoraConfig(
 
 ## Next Steps
 
-1. **Read [What is Fine-Tuning?](./02-what-is-fine-tuning.md)** — Transfer learning concepts
+1. **Read [Fine-Tuning Workflows Overview](./03-workflows.md)** — Full FT, LoRA, QLoRA, DPO, ORPO comparison
 2. **Experiment with model loading:**
    ```python
    from transformers import AutoModelForCausalLM

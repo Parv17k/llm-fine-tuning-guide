@@ -24,9 +24,9 @@ Before you begin, ensure you have:
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| **OS** | Windows 10 / macOS 12 / Linux | Linux (Ubuntu 22.04+) |
-| **Python** | 3.10 | 3.11 |
-| **GPU** | 8GB VRAM (RTX 3060) | 24GB+ VRAM (RTX 3090/4090, A100) |
+| **OS** | Windows 10 / macOS 12 / Linux | Linux (Ubuntu 24.04+) |
+| **Python** | 3.10 | 3.11-3.12 |
+| **GPU** | 8GB VRAM (RTX 4060) | 24GB+ VRAM (RTX 5090, H100) |
 | **Disk Space** | 50GB free | 500GB+ NVMe SSD |
 | **RAM** | 16GB | 64GB+ |
 
@@ -84,23 +84,30 @@ which pip  # Should show path inside .venv/
 CUDA is NVIDIA's parallel computing platform. PyTorch must be compiled against a specific CUDA version:
 
 | GPU Architecture | Example Cards | CUDA Support |
-|------------------|---------------|--------------|
+|------------------|---------------|---------------|
 | Ampere | RTX 3090, A100 | CUDA 11.0+ |
-| Ada Lovelace | RTX 4090 | CUDA 11.8+ |
+| Ada Lovelace | RTX 4090 | CUDA 12.4+ |
 | Hopper | H100 | CUDA 12.0+ |
+| Blackwell | B200, B100, RTX 5090 | CUDA 12.8+ |
 
 ### Installation Commands
 
-**For CUDA 12.1 (Recommended for RTX 40-series):**
+**For CUDA 12.8 (Recommended for RTX 40-series & Blackwell):**
 
 ```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
 
-**For CUDA 11.8 (Compatible with most GPUs):**
+**For CUDA 12.4 (Broad compatibility):**
 
 ```bash
-pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
+```
+
+**For CUDA 11.8 (Legacy GPUs):**
+
+```bash
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
 **For CPU-only (No GPU - for testing):**
@@ -133,12 +140,12 @@ if torch.cuda.is_available():
 
 Expected output:
 ```
-PyTorch version: 2.1.0+cu121
+PyTorch version: 2.12.1+cu128
 CUDA available: True
-CUDA version: 12.1
+CUDA version: 12.8
 GPU count: 1
-GPU name: NVIDIA GeForce RTX 4090
-GPU memory: 24.0 GB
+GPU name: NVIDIA GeForce RTX 5090
+GPU memory: 32.0 GB
 ```
 
 ---
@@ -148,7 +155,7 @@ GPU memory: 24.0 GB
 ### Why Authenticate?
 
 Authentication is required for:
-- Downloading gated models (Llama 2/3, Mistral)
+- Downloading gated models (Llama 3.1/3.2/3.3/4, Mistral, Gemma)
 - Pushing your fine-tuned models to the Hub
 - Accessing private repositories
 - Using the Inference API
@@ -205,13 +212,17 @@ except:
 
 Some models require additional approval:
 
-1. **Llama 2/3 (Meta):**
-   - Go to the model page (e.g., [meta-llama/Llama-3-8B](https://huggingface.co/meta-llama/Llama-3-8B))
+1. **Llama 3.2/3.3/4** (Meta):
+   - Go to the model page (e.g., [meta-llama/Llama-4-Scout-17B-16E-Instruct](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct))
    - Click "Agree and access repository"
    - Accept Meta's terms
 
-2. **Mistral (Mistral AI):**
-   - Same process on [mistralai/Mistral-7B](https://huggingface.co/mistralai/Mistral-7B-v0.1)
+2. **Gemma 3/4** (Google):
+   - Go to [google/gemma-4-12B-it](https://huggingface.co/google/gemma-4-12B-it)
+   - Accept Google's Gemma license
+
+3. **Mistral** (Mistral AI):
+   - [mistralai/Mistral-Small-24B-Instruct-2501](https://huggingface.co/mistralai/Mistral-Small-24B-Instruct-2501)
 
 ---
 
@@ -232,19 +243,39 @@ pip install \
     matplotlib
 ```
 
+### Optional: Performance & Productivity Tools
+
+```bash
+# Liger Kernel — fused attention & RMSNorm kernels that reduce memory 20-30%
+pip install liger-kernel
+
+# Unsloth — 2x faster training with memory optimizations
+pip install unsloth
+
+# vLLM — high-throughput serving
+pip install vllm
+
+# Gradio — build demo UIs for your models
+pip install gradio
+```
+
 ### Library Breakdown
 
-| Library | Purpose | Required For |
-|---------|---------|--------------|
-| `transformers` | Model loading, tokenizers, training loops | Everything |
-| `peft` | LoRA, QLoRA, adapter methods | Parameter-efficient fine-tuning |
-| `trl` | DPO, ORPO, PPO alignment algorithms | RLHF and preference optimization |
-| `datasets` | Efficient dataset loading and preprocessing | Data pipelines |
-| `accelerate` | Multi-GPU, mixed precision training | Scaling training |
-| `bitsandbytes` | 4-bit and 8-bit quantization | QLoRA |
-| `scipy` | Mathematical utilities | Evaluation metrics |
-| `wandb` | Experiment tracking | Monitoring training |
-| `matplotlib` | Visualization | Plotting results |
+| Library | Version | Purpose | Required For |
+|---------|---------|---------|-------------|
+| `transformers` | 5.13+ | Model loading, tokenizers, training loops | Everything |
+| `peft` | 0.19+ | LoRA, QLoRA, 40+ adapter methods incl. GraLoRA, TinyLoRA | Parameter-efficient fine-tuning |
+| `trl` | 1.7+ | DPO, ORPO, GRPO, KTO, RLOO, GMPO alignment algorithms | RLHF and preference optimization |
+| `datasets` | 4.7+ | Efficient dataset loading and preprocessing | Data pipelines |
+| `accelerate` | 1.14+ | Multi-GPU, mixed precision training | Scaling training |
+| `bitsandbytes` | 0.49+ | 4-bit and 8-bit quantization | QLoRA |
+| `liger-kernel` | 0.8+ | Fused kernels (attention, RMSNorm) for 20-30% VRAM savings | Performance optimization |
+| `unsloth` | 2026.6+ | 2x faster training, 70% less VRAM, RL support | Speed optimization |
+| `scipy` | latest | Mathematical utilities | Evaluation metrics |
+| `wandb` | latest | Experiment tracking | Monitoring training |
+| `gradio` | 6+ | Build demo UIs for your models | Demo/exposure |
+| `vllm` | 0.24+ | High-throughput model serving with continuous batching | Deployment |
+| `matplotlib` | latest | Visualization | Plotting results |
 
 ### Optional: Development Tools
 
@@ -361,12 +392,12 @@ For reproducible environments, use Docker:
 
 ### Pre-built Images
 
-**Official PyTorch Image (CUDA 12.1):**
+**Official PyTorch Image (CUDA 12.8):**
 ```bash
 docker run --gpus all -it \
     --shm-size=8g \
     -v $(pwd):/workspace \
-    pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+    pytorch/pytorch:2.12.1-cuda12.8-cudnn9-runtime
 ```
 
 **Hugging Face Transformers Image:**
@@ -377,21 +408,32 @@ docker run --gpus all -it \
     huggingface/transformers
 ```
 
+**vLLM Serving Image:**
+```bash
+docker run --gpus all -it \
+    --shm-size=16g \
+    -p 8000:8000 \
+    -v $(pwd):/workspace \
+    vllm/vllm-openai:v0.24.0
+```
+
 ### Custom Dockerfile
 
 ```dockerfile
-FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.12.1-cuda12.8-cudnn9-runtime
 
 WORKDIR /workspace
 
-# Install Hugging Face ecosystem
+# Install Hugging Face ecosystem + performance tools
 RUN pip install --no-cache-dir \
-    transformers \
-    peft \
-    trl \
+    transformers==5.13.0 \
+    peft==0.19.1 \
+    trl==1.7.1 \
     datasets \
     accelerate \
     bitsandbytes \
+    liger-kernel \
+    unsloth \
     scipy \
     wandb
 
@@ -428,5 +470,10 @@ Now that your environment is set up:
 
 - [PyTorch Installation Guide](https://pytorch.org/get-started/locally/)
 - [Hugging Face Transformers Documentation](https://huggingface.co/docs/transformers)
+- [PEFT Library Documentation](https://huggingface.co/docs/peft)
+- [TRL Documentation](https://huggingface.co/docs/trl)
 - [BitsAndBytes Quantization](https://github.com/TimDettmers/bitsandbytes)
+- [Liger Kernel](https://github.com/linkedin/Liger-Kernel)
+- [Unsloth](https://github.com/unslothai/unsloth)
+- [vLLM Serving](https://github.com/vllm-project/vllm)
 - [Docker for Machine Learning](https://docs.docker.com/guides/ai-and-ml/)
