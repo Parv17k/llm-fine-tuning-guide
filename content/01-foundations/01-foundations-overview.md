@@ -28,29 +28,24 @@ Before you write a single line of training code, you need to answer three questi
 2. **What kind of fine-tuning do I need?** (Full, LoRA, QLoRA, or alignment?)
 3. **What does success look like?** (How will I know if it worked?)
 
-Getting these answers wrong is expensive. A fine-tuning run on a 70B model can cost hundreds of dollars in compute. More importantly, fine-tuning for the wrong reason wastes weeks of engineering time.
+Getting these answers wrong is **expensive**. A fine-tuning run on a 70B model can cost hundreds of dollars in compute. More importantly, fine-tuning for the wrong reason wastes weeks of engineering time.
 
 This module gives you the decision framework to answer these questions correctly—before you invest in the wrong approach.
 
 ### Who This Module Is For
 
-- **Developers** who can write Python but have never touched PyTorch
+- **Developers** who can write/understand Python but have never touched PyTorch
 - **DevOps engineers** who need to provision GPUs and debug OOM errors
-- **Technical leads** making architecture decisions about LLM deployments
-- **Anyone** who has tried fine-tuning and gotten confusing results
-
-### What You Don't Need
-
-- Linear algebra or calculus background
-- Prior machine learning experience
-- Access to expensive hardware (we'll cover cloud options)
+- **Technical leads** making architecture decisions about LLMs.
+- **Anyone** who has tried fine-tuning and gotten confusing results or would like to learn more in depth.
 
 ### What You Do Need
 
+- Most important brains!, No I am mean seriously, you need to be able to think critically about LLMs and their behavior.
 - Comfort with Python (functions, loops, imports)
 - Basic command-line familiarity
 - A Hugging Face account (free tier works)
-
+- A GPU (local, cloud, or Colab)
 ---
 
 ## The Paradigm Shift: Prompting vs. RAG vs. Fine-Tuning
@@ -64,7 +59,7 @@ The LLM landscape has shifted dramatically since 2023. Here's what's changed:
 | Fine-tuning cost | $1000s for 7B | $15-40 for 7B on LoRA |
 | Tooling maturity | Experimental | Production-ready |
 
-The universal principle across all sources is:
+**[Important]** The universal principle across all sources is:
 
 > **"Prompting solves instruction problems, RAG solves knowledge problems, and fine-tuning solves behavior problems."**
 
@@ -104,7 +99,7 @@ print(response.choices[0].message.content)
 ```
 
 **When prompting isn't enough:**
-- Task requires knowledge post-dating the model's training cutoff
+- Task requires knowledge post-dating the model's training cutoff [ until model is not fetching web data using tools]
 - Consistent behavior degrades across thousands of diverse inputs
 - Output format needs 99%+ reliability (prompting typically achieves ~70-80%)
 - Context window is consumed by examples, leaving no room for user content
@@ -115,7 +110,7 @@ print(response.choices[0].message.content)
 
 **What it is:** An external retrieval system (typically a vector database) fetches relevant documents at query time and injects them into the prompt.
 
-**Cost:** Moderate setup ($50-300/month for vector DB infrastructure). Adds 100-500ms latency per query.
+**Cost:** Moderate setup cost depends on use-case and amount of data. Adds some latency per query.
 
 **Best for:**
 - Document Q&A (internal wikis, knowledge bases)
@@ -158,7 +153,7 @@ Answer:"""
 
 **When RAG isn't enough:**
 - You need the model to *behave* differently, not just know more
-- Retrieval latency is unacceptable for real-time applications (sub-100ms SLAs)
+- Retrieval latency is unacceptable for real-time applications (sub-100ms SLAs) [can be important for high-volume applications]
 - Knowledge is embedded in reasoning style, not discrete document lookups
 
 ---
@@ -167,7 +162,7 @@ Answer:"""
 
 **What it is:** Updating model weights on a task-specific dataset using LoRA, QLoRA, or full fine-tuning.
 
-**Cost:** $200-5,000 per training run + ongoing maintenance + retraining cadence as base models evolve.
+**Cost:** usually $200-5,000 per training run + ongoing maintenance + retraining cadence as base models evolve.
 
 **Best for:**
 - **Format compliance** (JSON schemas, structured outputs at 99%+ reliability)
@@ -176,7 +171,7 @@ Answer:"""
 - **Cost reduction** via distillation to smaller models
 
 **2026 Fine-Tuning Reality:**
-- **LoRA/QLoRA is the default** — only 0.1-1% trainable parameters vs. 100% for full fine-tuning
+- **LoRA/QLoRA is mostly default** — only 0.1-1% trainable parameters vs. 100% for full fine-tuning
 - A 7B-8B model can be fine-tuned on a single A100 for **$15-40**
 - QLoRA enables 70B model fine-tuning on 2× A100 GPUs with 4-bit quantization
 
@@ -212,12 +207,10 @@ lora_config = LoraConfig(
 model = get_peft_model(model, lora_config)
 # Now only ~0.5% of parameters are trainable
 ```
-
 **Warning: Never fine-tune for:**
-- Facts that change (they decay from weights quickly)
+- Facts that change frequently (they decay from weights quickly)
 - Datasets under 200-500 examples (too small for generalization)
 - Tasks where base model + prompting already works
-
 ---
 
 ## When to Fine-Tune (and When Not To)
@@ -279,7 +272,7 @@ Not all fine-tuning is the same. Here's the landscape:
 - Highest accuracy requirements
 - Research/experimentation
 
-**Why rarely used:** Prohibitively expensive for most practitioners. LoRA/QLoRA achieve 90-95% of the quality at 1% of the cost.
+**Why rarely used:** really expensive for most practitioners. LoRA/QLoRA achieve 90-95% of the quality at roughly 1% of the cost.
 
 ---
 
@@ -303,7 +296,7 @@ Where:
 
 For a 4096×4096 matrix with r=16: **131K trainable params vs. 16.7M** (128× reduction)
 
-> **Paper-Validated Insight:** The original LoRA paper found that update matrices during adaptation have very low "intrinsic rank"—even r=1 or r=2 can suffice for effective adaptation. However, practical implementations use r=8 to r=64 for robustness across tasks.
+> **Paper-Validated Insight:** The original LoRA paper found that update matrices during adaptation have very low "intrinsic rank" —even r=1 or r=2 can suffice for effective adaptation. However, practical implementations use r=8 to r=64 for robustness across tasks.
 
 **Key Hyperparameters:**
 
@@ -369,19 +362,8 @@ model.enable_input_require_grads()  # Required for QLoRA
 
 **How it works:** Eliminates separate reward models and RL. Directly optimizes using preference datasets (chosen vs. rejected responses).
 
-**Paper-Validated Insight:** DPO was introduced in the NeurIPS 2023 paper *"Direct Preference Optimization: Your Language Model is Secretly a Reward Model"* by researchers at Stanford University. The core insight is a mathematical mapping between reward functions and optimal policies that converts the RLHF objective into a simple **binary cross-entropy classification loss** on preference data.
+**Paper-Validated Insight:** DPO was introduced in the NeurIPS 2023 paper *"Direct Preference Optimization: Your Language Model is Secretly a Reward Model"* by researchers at Stanford University. The core insight is a mathematical mapping between reward functions and optimal policies that converts the RLHF (Reinforcement Learning from Human Feedback) objective into a simple **binary cross-entropy classification loss** on preference data.
 
-**The DPO Loss (from the paper):**
-
-```
-L_DPO = -E[log σ(β log(π_θ(y_w|x)/π_ref(y_w|x)) - β log(π_θ(y_l|x)/π_ref(y_l|x)))]
-```
-
-Where:
-- `y_w` = chosen (winning) response
-- `y_l` = rejected (losing) response
-- `π_ref` = reference model (frozen)
-- `β` = temperature/control parameter (typically 0.1-0.5)
 
 **Data Format:**
 
@@ -392,9 +374,6 @@ Where:
   "non_preferred_output": [{"role": "assistant", "content": "Suboptimal response"}]
 }
 ```
-
-**Key Hyperparameter:**
-- `beta` (0-2, default: auto): Controls conservatism. Higher = more conservative.
 
 **Workflow:**
 1. Fine-tune base model with SFT using preferred responses
@@ -409,26 +388,6 @@ Where:
 **How it works:** Combines SFT and preference alignment into a **single unified objective** using an odds-ratio penalty. No separate SFT stage needed.
 
 **Paper-Validated Insight:** ORPO was introduced in the EMNLP 2024 paper *"ORPO: Monolithic Preference Optimization without Reference Model"* by researchers at KAIST AI. The key contribution is eliminating the need for a separate reference model and additional preference alignment phase.
-
-**Objective Function:**
-
-```
-L(d; θ) = L_SFT(x, yw; θ) + λ × L_OR(d; θ)
-```
-
-Where:
-- `L_SFT`: Standard negative log-likelihood loss
-- `L_OR`: Odds ratio loss (maximizes chosen/rejected ratio)
-- `λ`: Weighting parameter (typically 0.1-1.0)
-
-**Key Configuration:**
-
-| Parameter | Purpose | Typical Value |
-|-----------|---------|---------------|
-| `beta` | Odds ratio penalty strength | 0.05-0.1 |
-| `max_length` | Maximum sequence length | 2048-4096 |
-| `learning_rate` | Optimizer learning rate | 5e-6 to 8e-6 |
-| `num_train_epochs` | Training epochs | 3-10 |
 
 **Paper-Validated Results:** The ORPO paper reports:
 - **56.3% reduction in training time** compared to DPO (no separate SFT stage)
@@ -482,7 +441,7 @@ flowchart TD
 
 ---
 
-## Key Architectural Concepts
+## Key Architectural Concepts [recall]
 
 You don't need to derive the math, but you should understand these concepts at a high level.
 
@@ -558,7 +517,7 @@ What is 2+2?<|im_end|>
 
 ### Misconception: "I can fine-tune on my laptop"
 
-**Reality:** Even QLoRA needs a GPU. 7B models need ~6GB VRAM minimum. Most laptops don't have this. Use Colab (free T4) or cloud GPUs.
+**Reality:** Even QLoRA needs a GPU. 7B models need ~6GB VRAM minimum. Most laptops don't have this, if you have it you can use it. Use Colab (free T4) or cloud GPUs.
 
 ### Gotcha: Chat Template Mismatch
 
