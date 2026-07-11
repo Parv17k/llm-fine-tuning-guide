@@ -1,4 +1,4 @@
- is it # Neural Networks for LLMs: A Developer's Primer
+# Neural Networks for LLMs: A technical's Primer
 
 No math, no algorithms - just the concepts you need to understand how LLMs work.
 
