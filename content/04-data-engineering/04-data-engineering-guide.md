@@ -257,7 +257,7 @@ print(f"Total samples: {len(combined)}")
 
 ```mermaid
 flowchart LR
-    A[Input Text<br/>"Fine-tuning LLMs"] --> B[Tokenizer]
+    A[Input Text<br/> Fine-tuning LLMs] --> B[Tokenizer]
     B --> C["Tokens:<br/>['Fine', '-', 'tun', 'ing', 'ĠLL', 'Ms']"]
     C --> D["Token IDs:<br/>[1234, 5, 67, 89, 234, 567]"]
     D --> E[Embedding Layer]
