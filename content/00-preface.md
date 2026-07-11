@@ -12,14 +12,17 @@ A Step-by-Step Guide for Technical People
 
 | Stage | Topic | Outcome |
 |-------|-------|---------|
-| 1 | Hardware Setup | Understand VRAM requirements, choose right GPU |
-| 2 | Data Prep | Format data for LLM training (ChatML, JSON) |
-| 3 | First Fine-Tune | Run SFT on a small model |
-| 4 | Parameter Efficiency | Master LoRA/QLoRA for cost savings |
-| 5 | Alignment | Steer model behavior with DPO/ORPO |
-| 6 | Evaluation | Validate your model properly |
-| 7 | Deployment | Quantize and serve your custom model |
-| 8 | MLOps | Build automated training pipelines |
+| 00 | Neural Network Basics | Understand how LLMs actually work |
+| 01 | Foundations | Prompt vs RAG vs Fine-tune decisions |
+| 02 | Setup & Environment | Get your tools ready |
+| 03 | Hardware Setup | Understand VRAM requirements, choose right GPU |
+| 04 | Data Prep | Format data for LLM training (ChatML, JSON) |
+| 05 | Training Dynamics | Run SFT on a model |
+| 06 | Parameter Efficiency | Master LoRA/QLoRA/Unsloth for cost savings |
+| 07 | Alignment | Steer model behavior with DPO/ORPO |
+| 08 | Evaluation | Validate your model properly |
+| 09 | Deployment | Quantize and serve your custom model |
+| 10 | MLOps | Build automated training pipelines |
 
 ### Who This Is For
 
@@ -33,7 +36,7 @@ A Step-by-Step Guide for Technical People
 - Python > 3.10
 - A Hugging Face account (free)
 - Basic Python knowledge (functions, loops, imports)
-- Optional: Access to an NVIDIA GPU (can use cloud)
+- Optional: Access to an NVIDIA GPU (can use cloud, or free Colab/Gradient tiers)
 
 ---
 
@@ -41,29 +44,33 @@ A Step-by-Step Guide for Technical People
 
 ```mermaid
 graph TB
-    subgraph "Foundations Layer"
+    subgraph "Foundation Layer"
+        N[Module 00<br/>Neural Nets]
         F[Module 01<br/>Foundations]
     end
 
     subgraph "Infrastructure Layer"
-        H[Module 02<br/>Hardware]
-        D[Module 03<br/>Data]
+        S[Module 02<br/>Setup]
+        H[Module 03<br/>Hardware]
+        D[Module 04<br/>Data]
     end
 
     subgraph "Training Layer"
-        T[Module 04<br/>Training]
-        PE[Module 05<br/>Param. Efficiency]
-        A[Module 06<br/>Alignment]
+        T[Module 05<br/>Training]
+        PE[Module 06<br/>Param. Efficiency]
+        A[Module 07<br/>Alignment]
     end
 
     subgraph "Production Layer"
-        E[Module 07<br/>Evaluation]
-        DP[Module 08<br/>Deployment]
-        M[Module 09<br/>MLOps]
+        E[Module 08<br/>Evaluation]
+        DP[Module 09<br/>Deployment]
+        M[Module 10<br/>MLOps]
     end
 
-    F --> H
-    F --> D
+    N --> F
+    F --> S
+    S --> H
+    S --> D
     H --> T
     D --> T
     T --> PE
@@ -73,7 +80,9 @@ graph TB
     E --> DP
     DP --> M
 
-    style F fill:#4a90d9,stroke:#2c5f9d,color:#ffffff,stroke-width:2px
+    style N fill:#2196f3,stroke:#1565c0,color:#ffffff,stroke-width:2px
+    style F fill:#2196f3,stroke:#1565c0,color:#ffffff,stroke-width:2px
+    style S fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
     style H fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
     style D fill:#4caf50,stroke:#388e3c,color:#ffffff,stroke-width:2px
     style T fill:#9c27b0,stroke:#7b1fa2,color:#ffffff,stroke-width:2px
@@ -88,7 +97,7 @@ graph TB
 
 ```mermaid
 flowchart LR
-    A[Start] --> B[Foundations]
+    A[Start] --> B[Neural Nets + Foundations]
     
     B --> C1[Path 1<br/>Full Learning]
     B --> C2[Path 2<br/>Quick Start]
@@ -102,10 +111,12 @@ flowchart LR
     C1 --> I1[Module 07]
     C1 --> J1[Module 08]
     C1 --> K1[Module 09]
+    C1 --> L1[Module 10]
     
     C2 --> D2[Module 02]
     C2 --> E2[Module 03]
     C2 --> F2[Module 04]
+    C2 --> G2[Module 05]
     
     C3 --> G3[Your Level]
     
@@ -124,8 +135,8 @@ flowchart LR
 Follow modules in order. Each builds on the previous.
 
 ```
-Foundations → Hardware → Data → Training → 
-Parameter Efficiency → Alignment → Evaluation → 
+Neural Nets → Foundations → Setup → Hardware → Data → 
+Training → Parameter Efficiency → Alignment → Evaluation → 
 Deployment → MLOps
 ```
 
@@ -134,16 +145,19 @@ Deployment → MLOps
 Skip theory and dive in quickly:
 
 ```
-Hardware (quick read) → Data → Training
+Neural Nets + Foundations (quick read) → Setup → Hardware → Data → Training
 ```
 
 ### Path 3: From Known to Advanced
 
 | Know This? | Start Here |
 |------------|------------|
-| Hardware/GPU | Module 03: Data |
-| SFT basics | Module 05: Parameter Efficiency |
-| DPO/ORPO | Module 07: Evaluation |
+| Basic LLM concepts | Module 02: Setup |
+| Environment setup | Module 04: Data Engineering |
+| Data engineering | Module 05: Training Dynamics |
+| SFT basics | Module 06: Parameter Efficiency |
+| LoRA/QLoRA | Module 07: Alignment |
+| Fine-tuning | Module 09: Deployment |
 
 ---
 
@@ -151,37 +165,42 @@ Hardware (quick read) → Data → Training
 
 | Module | Title | Key Takeaway |
 |--------|-------|--------------|
-| 01 | Foundations | Core concepts that won't change |
-| 02 | Hardware Matrix | VRAM math, GPU selection |
-| 03 | Data Engine | Tokenization, ChatML, curation |
-| 04 | Training Dynamics | SFT, hyperparameters, multi-GPU |
-| 05 | Parameter Efficiency | LoRA, QLoRA, adapters |
-| 06 | Alignment | DPO, ORPO without RL |
-| 07 | Evaluation | Avoid overfitting, custom evals |
-| 08 | Model Deployment | GGUF, AWQ, vLLM, TGI |
-| 09 | MLOps | CI/CD, monitoring, production |
+| 00 | Neural Networks | Core concepts that won't change |
+| 01 | Foundations | Prompt vs RAG vs Fine-tune decisions |
+| 02 | Setup & Environment | Tooling, libraries, environment |
+| 03 | Hardware Matrix | VRAM math, GPU selection |
+| 04 | Data Engineering | Tokenization, ChatML, curation |
+| 05 | Training Dynamics | SFT, hyperparameters, multi-GPU |
+| 06 | Parameter Efficiency | LoRA, QLoRA, Unsloth, adapters |
+| 07 | Alignment | DPO, ORPO without RL |
+| 08 | Evaluation | Avoid overfitting, custom evals |
+| 09 | Model Deployment | GGUF, AWQ, FP8, vLLM, TGI |
+| 10 | MLOps | CI/CD, monitoring, production |
 
 ### Module Progression Timeline
 
 ```mermaid
 timeline
     title Guide Progression
-    section Foundational (Mod 01-03)
+    section Foundations (Mod 00-01)
+        Module 00 : Neural Networks
         Module 01 : Foundations
-        Module 02 : Hardware Matrix
-        Module 03 : Data Engineering
-    section Core Training (Mod 04-06)
-        Module 04 : Training Dynamics
-        Module 05 : Parameter Efficiency
-        Module 06 : Alignment
-    section Production (Mod 07-09)
-        Module 07 : Evaluation
-        Module 08 : Deployment
-        Module 09 : MLOps
+    section Setup (Mod 02-04)
+        Module 02 : Setup
+        Module 03 : Hardware
+        Module 04 : Data Engineering
+    section Core Training (Mod 05-07)
+        Module 05 : Training Dynamics
+        Module 06 : Parameter Efficiency
+        Module 07 : Alignment
+    section Production (Mod 08-10)
+        Module 08 : Evaluation
+        Module 09 : Deployment
+        Module 10 : MLOps
 ```
 
 ---
 
 ## Ready to Begin?
 
-Head to **Module 01: Foundations** to understand the big picture, or jump straight to **Hardware** if you're ready to set up your machine.
+Head to **Module 00: Neural Networks** to understand how LLMs work (covering Llama 4, Qwen 3.6, Gemma 4, and more), or **Module 01: Foundations** for the big picture. If you already have the basics, jump straight to **Module 02: Setup** to get your environment ready.

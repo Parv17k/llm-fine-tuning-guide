@@ -48,8 +48,8 @@ Let's trace a forward pass:
 ```python
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
-tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
+model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
+tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
 
 text = "The capital of France is"
 inputs = tokenizer(text, return_tensors="pt")
@@ -173,8 +173,10 @@ class RMSNorm(nn.Module):
 |------|-------------|---------|
 | **Causal (Masked)** | Tokens can only attend to previous tokens | All decoder LLMs |
 | **Bidirectional** | Tokens attend to all positions | BERT, encoders |
-| **Sliding Window** | Attend only to nearby tokens (e.g., 4K window) | Mistral, Llama-3 |
-| **Global + Local** | Some tokens attend globally, others locally | Longformer |
+| **Sliding Window** | Attend only to nearby tokens (e.g., 4K window) | Mistral 7B, Gemma |
+| **Global + Local** | Some tokens attend globally, others locally | Longformer, BigBird |
+| **Mixed-RoPE** | Short and long context RoPE heads | Qwen3 |
+| **Mixture-of-Experts** | Different experts route different tokens | Mixtral, Phi-3.5, Qwen3-MoE |
 
 ### Sliding Window Attention (Mistral)
 
@@ -207,13 +209,46 @@ flowchart LR
 
 ### Multi-Query Attention (MQA) and Grouped-Query Attention (GQA)
 
-| Type | Key-Value Heads | Example |
-|------|-----------------|---------|
-| **Multi-Head (MHA)** | Same as query heads (32) | Llama-2-7B |
-| **Multi-Query (MQA)** | 1 shared KV head | Falcon-7B |
-| **Grouped-Query (GQA)** | Fewer KV heads (8) | Mistral-7B, Llama-3-8B |
+| Type | Key-Value Heads | Example | Notes |
+|------|-----------------|---------|-------|
+| **Multi-Head (MHA)** | Same as query heads (32) | Llama-2-7B | Original attention |
+| **Multi-Query (MQA)** | 1 shared KV head | Falcon-7B | Maximum inference speed |
+| **Grouped-Query (GQA)** | Fewer KV heads (8) | Mistral-7B v0.3, Llama-3.2/3.3 | Best speed/quality balance |
+| **Block-Grouped (BGQA)** | Variable KV heads | Qwen3 | Adaptive per-layer |
 
 **Why it matters:** GQA/MQA reduces memory during inference (KV cache is smaller). Fine-tuning doesn't change this architecture.
+
+### Flash Attention 2 & 3
+
+Flash Attention is an optimized attention implementation that reduces memory complexity from O(n²d) to O(n) by computing attention in a streaming fashion:
+
+```python
+# Enable Flash Attention 2 (recommended for all models)
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen3-8B",
+    attn_implementation="flash_attention_2",
+)
+
+# Flash Attention 3 (newer, faster on Hopper/Blackwell GPUs)
+# Note: FA3 support varies by transformers version
+# model = AutoModelForCausalLM.from_pretrained(
+#     "meta-llama/Llama-3.3-70B-Instruct",
+#     attn_implementation="flash_attention_3",
+# )
+```
+
+**Performance gains:**
+- 2-4x faster training vs. standard attention
+- 40-60% less memory for activations
+- Essential for training on 7B+ models on consumer GPUs
+- Automatic fallback to standard attention if not supported
+
+**Installation:**
+```bash
+pip install flash-attn --no-build-isolation
+```
+
+**Fine-tuning implication:** Enable Flash Attention 2 for all training. It's now the default for many models in transformers 5.x.
 
 ---
 
@@ -226,7 +261,7 @@ Converting text to numbers the model understands:
 ```python
 from transformers import AutoTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.1")
+tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
 
 text = "Fine-tuning is powerful"
 tokens = tokenizer.tokenize(text)
@@ -244,9 +279,10 @@ print(decoded)  # "Fine-tuning is powerful"
 | Type | Split Strategy | Example Models |
 |------|----------------|----------------|
 | **WordPiece** | Subword, merges common patterns | BERT |
-| **Byte-Pair Encoding (BPE)** | Iteratively merges frequent pairs | GPT-2, GPT-3 |
-| **SentencePiece** | Treats input as raw bytes | Llama, T5 |
+| **Byte-Pair Encoding (BPE)** | Iteratively merges frequent pairs | GPT-2, GPT-3, Llama |
+| **SentencePiece** | Treats input as raw bytes | Llama, Mistral, T5 |
 | **TikToken** | Custom BPE variant | GPT-4, Claude |
+| **Unigram** | Probabilistic subword model | BERT multilingual, NLLB |
 
 ### Vocabulary Size Impact
 
@@ -287,9 +323,12 @@ Memory scales with sequence length:
 **Behavior:** Completes patterns. If you prompt "What is 2+2?", it might continue "2+2? Let me think..." because that's common in training data.
 
 **Examples:**
-- `meta-llama/Llama-3-8B` (base)
-- `mistralai/Mistral-7B-v0.1` (base)
-- `Qwen/Qwen2-7B` (base)
+- `meta-llama/Llama-3.2-3B` (base)
+- `Qwen/Qwen3-8B` (base)
+- `google/gemma-3-1b-pt` (base)
+- `Qwen/Qwen3-8B` (base)
+- `mistralai/Mistral-7B-Instruct-v0.3` (instruction-tuned)
+- `mistralai/Mistral-7B-Instruct-v0.3` (instruction-tuned)
 
 **When to use:**
 - You want full control over behavior
@@ -303,9 +342,14 @@ Memory scales with sequence length:
 **Behavior:** Responds to prompts helpfully. "What is 2+2?" → "2+2 equals 4."
 
 **Examples:**
-- `meta-llama/Llama-3-8B-Instruct`
-- `mistralai/Mistral-7B-Instruct-v0.1`
-- `Qwen/Qwen2-7B-Instruct`
+- `meta-llama/Llama-3.2-3B-Instruct`
+- `meta-llama/Llama-3.3-70B-Instruct`
+- `mistralai/Mistral-7B-Instruct-v0.3`
+- `google/gemma-4-12B-it`
+- `Qwen/Qwen3-8B` (base — fine-tune for instruction)
+- `google/gemma-4-12B-it`
+- `microsoft/Phi-4-mini-reasoning`
+- `HuggingFaceTB/SmolLM2-1.7B-Instruct`
 
 **When to use:**
 - Chatbots and assistants
@@ -327,70 +371,253 @@ Memory scales with sequence length:
 
 ## Model Families and Their Quirks
 
-### Llama 2/3 (Meta)
+### Model Families and Their Quirks
+
+#### Llama 3.2 (Meta) — Compact & Edge-Optimized
 
 ```python
 from transformers import AutoModelForCausalLM
 
-# Llama-3-8B
+# Llama-3.2-3B-Instruct (popular edge model)
 model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-3-8B",
-    torch_dtype=torch.bfloat16,  # Required
-    attn_implementation="flash_attention_2"  # Optional, faster
+    "meta-llama/Llama-3.2-3B-Instruct",
+    torch_dtype=torch.bfloat16,
+    attn_implementation="flash_attention_2",  # Flash Attention 2
 )
 ```
 
 **Quirks:**
-- Requires bfloat16 (not float16)
-- GQA attention (8 KV heads)
+- GQA attention (8 KV heads for 3B, 4 for 1B)
 - SwiGLU activation
 - RMSNorm (no bias)
+- 128K context window
+- Bfloat16 recommended
 
-### Mistral (Mistral AI)
+#### Llama 3.3 (Meta) — 70B Powerhouse
 
 ```python
-# Mistral-7B-v0.1
 model = AutoModelForCausalLM.from_pretrained(
-    "mistralai/Mistral-7B-v0.1",
-    torch_dtype=torch.float16,  # Works with float16
+    "meta-llama/Llama-3.3-70B-Instruct",
+    torch_dtype=torch.bfloat16,
+    attn_implementation="flash_attention_2",
 )
 ```
 
 **Quirks:**
-- Sliding window attention (4096)
-- GQA attention
-- No bias in attention
-- Works with float16 (unlike Llama)
+- 128K context window
+- GQA with 64 query heads, 8 KV heads
+- Strongest single-model performance in class
+- Requires multi-GPU for full fine-tuning
 
-### Qwen2 (Alibaba)
+#### Llama 4 Scout (Meta) — Compact Smart Model
 
 ```python
-# Qwen2-7B
 model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen2-7B",
+    "meta-llama/Llama-4-Scout-17B-16E-Instruct",
     torch_dtype=torch.bfloat16,
 )
 ```
 
 **Quirks:**
-- Supports 128K context
-- Multi-query attention in smaller models
-- SwiGLU activation
+- 17B parameters with 16 expert layers (MoE architecture)
+- Efficient for its class — comparable to larger dense models
+- Vision-capable (multimodal)
 
-### Phi-3 (Microsoft)
+#### Llama 4 Maverick (Meta) — Expert-Scale Model
 
 ```python
-# Phi-3-mini (3.8B)
 model = AutoModelForCausalLM.from_pretrained(
-    "microsoft/Phi-3-mini-4k-instruct",
-    trust_remote_code=True,  # Required
+    "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
+    torch_dtype=torch.bfloat16,
 )
 ```
 
 **Quirks:**
-- Small but capable
-- Requires `trust_remote_code=True`
-- Custom architecture
+- 17B parameters with 128 expert layers (massive MoE)
+- Much larger total parameter count than Scout
+- Vision-capable (multimodal)
+- FP8 quantization available for inference
+
+#### Mistral-Small-24B (Mistral AI) — Multilingual Leader
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-Small-24B-Instruct-2501",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Strong multilingual support (10+ languages)
+- Better cost-performance ratio than larger models
+- Supports function calling
+
+#### Mistral-7B-v0.3 (Mistral AI) — Updated Standard
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-v0.3",
+    torch_dtype=torch.bfloat16,  # v0.3 requires bfloat16
+)
+```
+
+**Quirks:**
+- Improved instruction following over v0.1
+- GQA attention (8 KV heads)
+- Sliding window attention (4096 tokens)
+- 32K context window
+- Now requires bfloat16 (was float16 in v0.1)
+- 128K vocab (expanded from 32K)
+
+#### Qwen3 (Alibaba) — Next Generation Base
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen3-8B",  # Available: 8B, 14B, 32B, 30B-A3B(MoE), 235B-A22B(MoE)
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Mixed-RoPE: short and long context RoPE heads
+- Dense + MoE variants
+- Native tool calling and agentic capabilities
+- Up to 256K context
+- **Note:** Qwen3 base models only (no Instruct variants yet) — fine-tune or use chat template
+
+#### Qwen3.5 (Alibaba) — Expanded Range
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen3.5-9B",  # Available: 0.8B, 2B, 4B, 9B, 27B, 35B-A3B(MoE), 122B-A10B(MoE), 397B-A17B(MoE)
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Extremely wide size range (0.8B to 397B)
+- MoE variants: 35B-A3B, 122B-A10B, 397B-A17B (active params in parentheses)
+- Strong coding and math capabilities
+- **Note:** Base models only — fine-tune for instruction following
+
+#### Qwen3.6 (Alibaba) — Latest Release
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen3.6-27B",  # Available: 27B, 35B-A3B
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Successor to Qwen3.5 with refined architectures
+- FP8 quantized versions available (nvidia/Qwen3.6-35B-A3B-NVFP4)
+- Base models only
+
+#### Qwen-AgentWorld (Alibaba) — Agentic Foundation
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "Qwen/Qwen-AgentWorld-35B-A3B",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- 35B total / 3B active parameters (MoE)
+- Designed for agentic workflows
+- Image-text-to-text modality
+
+#### Gemma 3 (Google) — Multimodal & Compact
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "google/gemma-3-1b-it",  # Available: 270m, 1B, 4B, 12B, 27B, 3n-E2B(nMoE)
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Multimodal (text + image)
+- FP8 quantization support for efficient inference
+- Gemma 3n-E2B-it: nMoE (non-uniform mixture of experts) variant
+- All sizes have instruct (IT) variants
+
+#### Gemma 4 (Google) — Latest Generation
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "google/gemma-4-26B-A4B-it",  # Available: 12B, 26B-A4B, 31B, E4B(nMoE), E2B(nMoE)
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Unified architecture across all sizes (gemma4_unified tag)
+- nMoE variants (E4B, E2B): non-uniform mixture of experts
+- 26B-A4B: 4 active experts
+- 31B: largest dense variant
+- All have instruct (IT) variants
+- QAT (quantization-aware training) variants available
+
+#### DeepSeek V4 (DeepSeek) — Advanced MoE
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "deepseek-ai/DeepSeek-V4-Flash",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Advanced MoE architecture with sparse routing
+- FP8 support for inference
+- Strong coding and math performance
+- MIT licensed
+
+#### GLM-5.2 (Zai-org) — MoE with Dynamic Sparse Attention
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "zai-org/GLM-5.2",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- MoE architecture with Dynamic Sparse Attention (DSA)
+- Bilingual (English + Chinese)
+- High community engagement (3400+ likes)
+
+#### Phi-4-mini-reasoning (Microsoft) — Reasoning Specialist
+
+```python
+model = AutoModelForCausalLM.from_pretrained(
+    "microsoft/Phi-4-mini-reasoning",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- Optimized for mathematical and logical reasoning
+- Compact and efficient
+- Phi-4-mini-reasoning: the latest reasoning-focused model
+
+#### SmolLM2/3 (HuggingFace) — Lightweight & Fun
+
+```python
+# SmolLM2-1.7B-Instruct
+model = AutoModelForCausalLM.from_pretrained(
+    "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+    torch_dtype=torch.bfloat16,
+)
+```
+
+**Quirks:**
+- SmolLM2: 360M-Instruct, 1.7B-Instruct (both instruct variants)
+- SmolLM3: 3B (base only, no instruct variant)
+- Designed for learning and prototyping
+- Excellent for edge deployment
 
 ---
 
@@ -434,12 +661,25 @@ config = LoraConfig(
 
 ### Architecture-Specific Recommendations
 
-| Model | Recommended LoRA Targets | Learning Rate |
-|-------|-------------------------|---------------|
-| Llama-3-8B | All linear | 2e-4 |
-| Mistral-7B | qkv + o_proj | 1e-4 |
-| Qwen2-7B | All linear | 2e-4 |
-| Phi-3-mini | All linear | 3e-4 |
+| Model | Recommended LoRA Targets | Learning Rate | Notes |
+|-------|-------------------------|---------------|-------|
+| Llama-4-Scout-17B-16E | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
+| Llama-4-Maverick-17B-128E | qkv + o_proj + gate/up/down | 1e-4 | Massive MoE, use QLoRA |
+| Llama-3.2-3B-Instruct | qkv + o_proj + gate/up/down | 2e-4 | All linear for best results |
+| Llama-3.3-70B-Instruct | qkv + o_proj + gate/up/down | 1e-4 | Use QLoRA for 12GB GPUs |
+| Mistral-Small-24B | All linear | 2e-4 | Full adaptation recommended |
+| Mistral-7B-v0.3 | qkv + o_proj + gate/up/down | 2e-4 | All linear recommended |
+| Qwen3-8B | All linear | 2e-4 | Dense attention |
+| Qwen3.5-9B | All linear | 2e-4 | Strong across all modules |
+| Qwen3.6-27B | All linear | 2e-4 | Successor to Qwen3.5 |
+| Qwen3.5-35B-A3B | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
+| Gemma-3-27b-it | All linear | 2e-4 | Largest Gemma 3 variant |
+| Gemma-4-12B-it | All linear | 2e-4 | Unified architecture |
+| Gemma-4-26B-A4B | All linear | 2e-4 | nMoE architecture |
+| DeepSeek-V4-Flash | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
+| GLM-5.2 | qkv + o_proj + gate/up/down | 2e-4 | MoE DSA architecture |
+| Phi-4-mini-reasoning | qkv + o_proj + gate/up/down | 2e-4 | Reasoning-focused |
+| SmolLM2-1.7B-Instruct | qkv + o_proj | 2e-4 | Compact but capable |
 
 ---
 
@@ -449,7 +689,7 @@ config = LoraConfig(
 2. **Experiment with model loading:**
    ```python
    from transformers import AutoModelForCausalLM
-   model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.1")
+   model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
    print(model.config)
    ```
 3. **Visualize attention patterns** using tools like [BertViz](https://github.com/jessevig/bertviz)
@@ -459,7 +699,16 @@ config = LoraConfig(
 ## References
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017
-- [Llama 3 Model Card](https://huggingface.co/meta-llama/Llama-3-8B)
-- [Mistral Architecture Details](https://mistral.ai/news/announcing-mistral-7b/)
+- [Llama 4 Scout/Maverick Model Cards](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct)
+- [Llama 3.3 Model Card](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
+- [Llama 3.2 Technical Report](https://ai.meta.com/research/publications/llama-3-2-reaching-the-capability-of-large-language-models-with-a-limited-compute-budget/)
+- [Mistral-Small-24B](https://mistral.ai/news/mistral-small-24b/)
+- [Qwen3 Technical Report](https://github.com/QwenLM/Qwen3)
+- [Qwen3.5 Technical Report](https://github.com/QwenLM/Qwen3.5)
+- [Qwen3.6 Technical Report](https://github.com/QwenLM/Qwen3.6)
+- [Gemma 4 Model Card](https://huggingface.co/google/gemma-4-12B-it)
+- [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
+- [Flash Attention 3](https://arxiv.org/abs/2407.08267)
 - [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) — Jay Alammar
 - [Hugging Face Model Hub](https://huggingface.co/models)
+- [PEFT Library](https://huggingface.co/docs/peft) — 40+ parameter-efficient tuning methods
