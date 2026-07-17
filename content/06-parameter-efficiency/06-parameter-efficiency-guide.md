@@ -261,10 +261,10 @@ graph TD
     PEFT --> Prompt[Prompt Tuning]
     PEFT --> Adapter[Adapter Layers]
     
-    LoRA --> LoRA variants[LoRA, QLoRA, AdaLoRA]
-    Prefix --> Prefix variants[Prefix, P-Tuning v2]
-    Prompt --> Prompt variants[Prompt, Soft Prompt]
-    Adapter --> Adapter variants[Houlsby, Pfeiffer, Compacter]
+    LoRA --> LoRA_variants[LoRA, QLoRA, AdaLoRA]
+    Prefix --> Prefix_variants[Prefix, P-Tuning v2]
+    Prompt --> Prompt_variants[Prompt, Soft Prompt]
+    Adapter --> Adapter_variants[Houlsby, Pfeiffer, Compacter]
     
     style PEFT fill:#347d39
     style LoRA fill:#238636
