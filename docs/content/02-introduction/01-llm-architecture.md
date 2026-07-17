@@ -1,8 +1,10 @@
 # Understanding LLM Architecture
 
-> **Lesson 01** — Transformer architecture refresher, attention mechanisms, and model types.
+> **Lesson 02** — Transformer architecture refresher, attention mechanisms, and model types.
 
 This guide provides the architectural knowledge you need to fine-tune effectively. You don't need to derive attention formulas, but you do need to understand what each component does and how it affects training.
+
+> **Beginner note**: If you're new to neural networks, read [Module 00: Neural Networks](../00-neural-networks-basics/) first for a beginner-friendly introduction to tokenization, embeddings, attention, and transformers. This lesson goes deeper with code examples and fine-tuning-specific details.
 
 ---
 
@@ -176,7 +178,7 @@ class RMSNorm(nn.Module):
 | **Sliding Window** | Attend only to nearby tokens (e.g., 4K window) | Mistral 7B, Gemma |
 | **Global + Local** | Some tokens attend globally, others locally | Longformer, BigBird |
 | **Mixed-RoPE** | Short and long context RoPE heads | Qwen3 |
-| **Mixture-of-Experts** | Different experts route different tokens | Mixtral, Phi-3.5, Qwen3-MoE |
+| **Linear Attention** | Hybrid linear + full attention layers | Qwen3.5/3.6 |
 
 ### Sliding Window Attention (Mistral)
 
@@ -218,7 +220,7 @@ flowchart LR
 
 **Why it matters:** GQA/MQA reduces memory during inference (KV cache is smaller). Fine-tuning doesn't change this architecture.
 
-### Flash Attention 2 & 3
+### Flash Attention 2 (and 3 Preview)
 
 Flash Attention is an optimized attention implementation that reduces memory complexity from O(n²d) to O(n) by computing attention in a streaming fashion:
 
@@ -228,14 +230,9 @@ model = AutoModelForCausalLM.from_pretrained(
     "Qwen/Qwen3-8B",
     attn_implementation="flash_attention_2",
 )
-
-# Flash Attention 3 (newer, faster on Hopper/Blackwell GPUs)
-# Note: FA3 support varies by transformers version
-# model = AutoModelForCausalLM.from_pretrained(
-#     "meta-llama/Llama-3.3-70B-Instruct",
-#     attn_implementation="flash_attention_3",
-# )
 ```
+
+**Note on Flash Attention 3:** Flash Attention 3 is an ongoing research effort for Hopper/Blackwell GPUs. It is **not yet a supported `attn_implementation` value** in the `transformers` library. Only `"flash_attention_2"` is currently available. Follow the [flash-attn repo](https://github.com/Dao-AILab/flash-attention) for updates on FA3 integration.
 
 **Performance gains:**
 - 2-4x faster training vs. standard attention
@@ -409,7 +406,7 @@ model = AutoModelForCausalLM.from_pretrained(
 - Strongest single-model performance in class
 - Requires multi-GPU for full fine-tuning
 
-#### Llama 4 Scout (Meta) — Compact Smart Model
+#### Llama 4 Scout (Meta) — Multimodal MoE Model
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
@@ -419,11 +416,13 @@ model = AutoModelForCausalLM.from_pretrained(
 ```
 
 **Quirks:**
-- 17B parameters with 16 expert layers (MoE architecture)
-- Efficient for its class — comparable to larger dense models
-- Vision-capable (multimodal)
+- **109B total parameters** with 16 experts per token (MoE architecture)
+- The "17B" in the model name refers to active/efficient parameter count, not total
+- Vision-capable (multimodal, image-text-to-text)
+- Supports tool calling and function composition
+- Gated model — requires Meta approval on HuggingFace
 
-#### Llama 4 Maverick (Meta) — Expert-Scale Model
+#### Llama 4 Maverick (Meta) — Expert-Scale MoE Model
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
@@ -433,10 +432,11 @@ model = AutoModelForCausalLM.from_pretrained(
 ```
 
 **Quirks:**
-- 17B parameters with 128 expert layers (massive MoE)
-- Much larger total parameter count than Scout
-- Vision-capable (multimodal)
-- FP8 quantization available for inference
+- **402B total parameters** with 128 experts (MoE architecture)
+- The "17B" in the model name refers to active/efficient parameter count, not total
+- Vision-capable (multimodal, image-text-to-text)
+- Requires multi-GPU for full fine-tuning
+- Gated model — requires Meta approval on HuggingFace
 
 #### Mistral-Small-24B (Mistral AI) — Multilingual Leader
 
@@ -467,7 +467,7 @@ model = AutoModelForCausalLM.from_pretrained(
 - Sliding window attention (4096 tokens)
 - 32K context window
 - Now requires bfloat16 (was float16 in v0.1)
-- 128K vocab (expanded from 32K)
+- 32K vocab (32,768 tokens)
 
 #### Qwen3 (Alibaba) — Next Generation Base
 
@@ -483,7 +483,7 @@ model = AutoModelForCausalLM.from_pretrained(
 - Dense + MoE variants
 - Native tool calling and agentic capabilities
 - Up to 256K context
-- **Note:** Qwen3 base models only (no Instruct variants yet) — fine-tune or use chat template
+- **Note:** Qwen3 text-only models have no instruct variants (Qwen3-VL-8B-Instruct exists as a multimodal model). Fine-tune a base model or use the VL instruct variant.
 
 #### Qwen3.5 (Alibaba) — Expanded Range
 
@@ -500,7 +500,7 @@ model = AutoModelForCausalLM.from_pretrained(
 - Strong coding and math capabilities
 - **Note:** Base models only — fine-tune for instruction following
 
-#### Qwen3.6 (Alibaba) — Latest Release
+#### Qwen3.6 (Alibaba) — Refined Qwen3.5 Architecture
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
@@ -510,9 +510,17 @@ model = AutoModelForCausalLM.from_pretrained(
 ```
 
 **Quirks:**
-- Successor to Qwen3.5 with refined architectures
-- FP8 quantized versions available (nvidia/Qwen3.6-35B-A3B-NVFP4)
-- Base models only
+- Uses the same `qwen3_5` architecture family as Qwen3.5 with refinements:
+  - `partial_rotary_factor: 0.25` (new — Qwen3.5 lacks this)
+  - `output_gate_type: swish` (new — Qwen3.5 has None)
+  - Larger hidden_size (5120 vs 4096 for 9B variant)
+  - More layers (64 vs 32 for 9B variant)
+- Alternating linear_attention + full_attention layers (full attention every 4th layer)
+- Multimodal (image-text-to-text) — not text-only
+- rope_theta: 10M (much higher than typical 10K)
+- vocab_size: 248,320
+- 256K context window
+- **Note:** Base models only — fine-tune for instruction following
 
 #### Qwen-AgentWorld (Alibaba) — Agentic Foundation
 
@@ -547,16 +555,17 @@ model = AutoModelForCausalLM.from_pretrained(
 
 ```python
 model = AutoModelForCausalLM.from_pretrained(
-    "google/gemma-4-26B-A4B-it",  # Available: 12B, 26B-A4B, 31B, E4B(nMoE), E2B(nMoE)
+    "google/gemma-4-12B-it",  # Available instruct: 12B(dense), 31B(dense), E4B(dense), E2B(dense); MoE: 26B-A4B
     torch_dtype=torch.bfloat16,
 )
 ```
 
 **Quirks:**
 - Unified architecture across all sizes (gemma4_unified tag)
-- nMoE variants (E4B, E2B): non-uniform mixture of experts
-- 26B-A4B: 4 active experts
-- 31B: largest dense variant
+- **Dense variants**: 12B (16 heads, 8 KV), 31B (32 heads, 16 KV), E4B (8 heads, 2 KV), E2B (8 heads, 1 KV)
+- **MoE variant**: 26B-A4B (128 experts, top-8 active, 16 heads, 2 global KV heads)
+- The "E4B"/"E2B" naming refers to efficient KV configurations, NOT MoE
+- 262K context window, vocab 262K, sliding window 1024
 - All have instruct (IT) variants
 - QAT (quantization-aware training) variants available
 
@@ -685,7 +694,7 @@ config = LoraConfig(
 
 ## Next Steps
 
-1. **Read [What is Fine-Tuning?](./02-what-is-fine-tuning.md)** — Transfer learning concepts
+1. **Read [Fine-Tuning Workflows Overview](./03-workflows.md)** — Full FT, LoRA, QLoRA, DPO, ORPO comparison
 2. **Experiment with model loading:**
    ```python
    from transformers import AutoModelForCausalLM
@@ -708,7 +717,7 @@ config = LoraConfig(
 - [Qwen3.6 Technical Report](https://github.com/QwenLM/Qwen3.6)
 - [Gemma 4 Model Card](https://huggingface.co/google/gemma-4-12B-it)
 - [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
-- [Flash Attention 3](https://arxiv.org/abs/2407.08267)
+- [Flash Attention 3](https://arxiv.org/abs/2407.21783)
 - [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) — Jay Alammar
 - [Hugging Face Model Hub](https://huggingface.co/models)
 - [PEFT Library](https://huggingface.co/docs/peft) — 40+ parameter-efficient tuning methods
