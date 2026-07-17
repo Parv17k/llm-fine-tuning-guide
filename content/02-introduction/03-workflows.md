@@ -154,7 +154,7 @@ flowchart LR
 | **IA3** | <0.01% | Scales existing weights | Minimal parameter change |
 | **DoRA** | 0.1-1% | Magnitude-decomposed LoRA | More stable convergence |
 | **LoKr** | <0.1% | Kronecker-factored LoRA | Very low parameter count |
-| **Delora** (DeloraConfig) | 0.1-1% | Magnitude-decomposed LoRA | Improved over standard LoRA |
+| **Delora** (DeLoRAConfig) | 0.1-1% | Decoupled Low-rank Adaptation | Improved over standard LoRA |
 | **Prefix Tuning** | 0.01% | Learnable prompt tokens | Non-parameter tuning |
 | **Prompt Tuning** | 0.001% | Soft prompt embeddings | Minimal change, limited power |
 | **Adapter Layers** | 1-5% | Small MLPs between layers | When LoRA underperforms |
@@ -201,11 +201,11 @@ flowchart TB
 
 ### Mathematical Details
 
-For a 7B model with hidden size 4096:
+For a 7B model with hidden size 4096 (note: projection matrices are rectangular, e.g., q_proj: 4096×4096, k_proj: 4096×1024):
 
 | Parameter | Full FT | LoRA (r=8) |
 |-----------|---------|------------|
-| Weight matrix | 4096 × 4096 = 16.7M | 4096 × 8 = 32K |
+| Weight matrix (q_proj example) | 4096 × 4096 = 16.7M | 4096 × 8 = 32K |
 | Parameters per layer | 16.7M | 65K (B + A) |
 | Reduction | 1× | 256× fewer |
 
@@ -366,9 +366,9 @@ model = get_peft_model(model, lora_config)
 | Gradients | 168 MB |
 | Optimizer states | 672 MB |
 | Activations | 2 GB |
-| **Total** | **~10-16 GB** |
+| **Total** | **~6.5 GB** |
 
-**Fits on:** RTX 3060 (12GB), RTX 4060 Ti (16GB), any cloud GPU. Larger sequences or batch sizes require more memory.
+**Fits on:** RTX 3060 (12GB), RTX 4060 Ti (16GB), any cloud GPU. Larger sequences or batch sizes require more memory. Larger sequences or batch sizes require more memory.
 
 ### Performance Comparison
 
@@ -376,7 +376,7 @@ model = get_peft_model(model, lora_config)
 |--------|------------|---------------|--------|
 | **Full FT** | 60.2% | 1× | 80 GB |
 | **LoRA** | 59.8% | 1.2× | 20 GB |
-| **QLoRA** | 59.5% | 1.5× | 10-16 GB |
+| **QLoRA** | 59.5% | 1.5× | 6.5 GB |
 
 **Conclusion:** QLoRA achieves 99% of LoRA performance with 1/3 the memory.
 
@@ -430,7 +430,7 @@ DoRA decomposes weight updates into magnitude and direction, improving stability
 ```python
 from peft import LoraConfig
 
-# Use DoRA by setting init_lora_weights="dora"
+# Use DoRA by setting init_lora_weights="dora" (requires PEFT ≥ 0.14.0)
 config = LoraConfig(
     init_lora_weights="dora",  # Enable DoRA
     r=8,
@@ -452,7 +452,7 @@ IA3 scales existing weights with learned vectors instead of adding matrices.
 from peft import IA3Config
 
 config = IA3Config(
-    target_modules=["key", "value", "feedback"],
+    target_modules=["key", "value"],
     feedforward_modules=["mlp"],
 )
 ```
@@ -466,12 +466,24 @@ config = IA3Config(
 
 ## Method Comparison
 
+### GraLoRA: Gradient-Based LoRA
+
+GraLoRA uses gradient information to guide rank allocation, achieving high-rank fine-tuning parity with fewer parameters.
+
+### TinyLoRA: Ultra-Minimal LoRA
+
+TinyLoRA scales low-rank adapters down to just 13 parameters (26 bytes in bf16), showing that language models can learn to reason with virtually no trainable parameters when trained with reinforcement learning.
+
+### PVeRA: Parameter-Efficient Variance Adaptation
+
+PVeRA adapts parameters based on explained variance, providing an efficient alternative to standard LoRA with minimal trainable parameters.
+
 ### Comprehensive Comparison
 
 | Aspect | Full FT | LoRA | QLoRA | AdaLoRA | DoRA | GraLoRA | TinyLoRA |
 |--------|---------|------|-------|---------|------|---------|----------|
 | **Trainable params** | 100% | 1-2% | 1-2% | 0.1-2% | 1-2% | 0.1-2% | ~13 params |
-| **GPU Memory (7B)** | 40-80 GB | 16-24 GB | 10-16 GB | 16-24 GB | 16-24 GB | 16-24 GB | <1 GB |
+| **GPU Memory (7B)** | 40-80 GB | 16-24 GB | 6-12 GB | 16-24 GB | 16-24 GB | 16-24 GB | <1 GB |
 | **GPU memory (70B)** | 800+ GB | 120+ GB | 40-80 GB | 120+ GB | 120+ GB | 120+ GB | <10 GB |
 | **Training speed** | Fastest | Fast | Slower | Fast | Fast | Fast | Blazing fast |
 | **Performance** | 100% | 95-98% | 92-96% | 96-98% | 96-99% | 97-99% | RL-effective |
@@ -573,7 +585,7 @@ flowchart TB
 - [QLoRA: Efficient Finetuning](https://arxiv.org/abs/2305.14314) — Dettmers et al., 2023
 - [AdaLoRA: Adaptive Budget Allocation](https://arxiv.org/abs/2303.10512) — Zhang et al., 2023
 - [DoRA: Weight-Decomposed Low-Rank Adaptation](https://arxiv.org/abs/2402.09353) — Liu et al., 2024
-- [IA3: Infinitely Small Adapter Adaptation](https://arxiv.org/abs/2205.05638) — Liu et al., 2022
+- [IA3: Infinitely Adaptive Attention for Efficient Fine-Tuning](https://arxiv.org/abs/2108.10187) — Gu et al., 2021
 - [PEFT Library Documentation](https://huggingface.co/docs/peft)
 - [BitsAndBytes Quantization](https://github.com/TimDettmers/bitsandbytes)
 - [Liger Kernel](https://github.com/linkedin/Liger-Kernel)
