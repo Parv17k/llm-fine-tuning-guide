@@ -130,7 +130,6 @@ Complete journey from foundations to production:
 00 → 01 → 02 → 03 → 04 → 05 → 06 → 07 → 08 → 09 → 10
 ```
 
-**Time commitment:** 4-6 weeks, 5-10 hours/week
 
 ### Path 2: Quick Start to Training
 
