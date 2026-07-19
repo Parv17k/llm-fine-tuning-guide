@@ -12,11 +12,10 @@ This guide provides the architectural knowledge you need to fine-tune effectivel
 
 1. [Why Architecture Matters for Fine-Tuning](#why-architecture-matters-for-fine-tuning)
 2. [Transformer Architecture Refresher](#transformer-architecture-refresher)
-3. [Attention Mechanisms Deep Dive](#attention-mechanisms-deep-dive)
-4. [Tokenization and Its Impact](#tokenization-and-its-impact)
-5. [Base Models vs. Instruction-Tuned Models](#base-models-vs-instruction-tuned-models)
-6. [Model Families and Their Quirks](#model-families-and-their-quirks)
-7. [Architecture's Impact on Fine-Tuning](#architectures-impact-on-fine-tuning)
+3. [Why N Layers? The Case for Depth](#why-n-layers-the-case-for-depth)
+4. [The Output Head: Why Only One Layer](#the-output-head-why-only-one-layer)
+5. [Attention Types at a Glance](#attention-types-at-a-glance)
+6. [Architecture's Impact on Fine-Tuning](#architectures-impact-on-fine-tuning)
 
 ---
 
@@ -48,6 +47,7 @@ Input Text → Tokenization → Embeddings → Transformer Blocks → Output Log
 Let's trace a forward pass:
 
 ```python
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
@@ -56,13 +56,13 @@ tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
 text = "The capital of France is"
 inputs = tokenizer(text, return_tensors="pt")
 
-# Forward pass
 with torch.no_grad():
     outputs = model(**inputs)
 
-# outputs.logits contains probabilities for next token
-next_token_id = outputs.logits[0, -1].argmax()
-print(tokenizer.decode(next_token_id))  # "Paris"
+# Extract the logits for the last token, get the most probable token ID as a Python int,
+# then decode it to text
+next_token_id = outputs.logits[0, -1, :].argmax().item()
+print(tokenizer.decode(next_token_id))
 ```
 
 ### Component Breakdown
@@ -73,28 +73,34 @@ flowchart TB
         A[Raw Text] --> B[Tokenizer]
         B --> C[Token IDs]
         C --> D[Embedding Layer]
+        D --> E[Token Embeddings]
+        E --> F[+ Positional Embeddings]
     end
     
     subgraph Transformer["Transformer Blocks (N layers)"]
-        D --> E[Self-Attention]
-        E --> F[Add & Norm]
-        F --> G[MLP / FFN]
+        F --> G[Self-Attention]
         G --> H[Add & Norm]
-        H --> E
+        H --> I[MLP / FFN]
+        I --> J[Add & Norm]
+        J --> G
     end
     
     subgraph Output["Output Generation"]
-        H --> I[Final Layer Norm]
-        I --> J[LM Head]
-        J --> K[Logits]
-        K --> L[Softmax]
-        L --> M[Token Probabilities]
+        J --> K[Final Layer Norm]
+        K --> L[LM Head]
+        L --> M[Logits]
+        M --> N[Softmax]
+        N --> O[Token Probabilities]
     end
     
     style Input fill:#e1f5fe
     style Transformer fill:#fff3e0
     style Output fill:#f3e5f5
 ```
+
+> **Interactive 3D visualization:** This diagram is a simplified 2D overview. To see the full architecture in 3D — exploring attention heads, KV caches, token flow, and step-by-step forward passes — try **[llm-visualized.com](https://www.llm-visualized.com/?token=4&generation=0&kvCache=0)**. It's an excellent companion for understanding exactly how the data flows through each component.
+
+> **Note on attention types:** The "Self-Attention" box in this diagram shows the *conceptual role* attention plays, not the *mechanism*. In practice, different models use different attention variants: causal masking (standard decoder LLMs), sliding windows (Mistral 7B), grouped-query attention (Llama-3, Mistral v0.3), or mixed linear/full attention (Qwen3.6). We cover these briefly in [Attention Types at a Glance](#attention-types-at-a-glance).
 
 ### Layer-by-Layer Breakdown
 
@@ -103,16 +109,40 @@ flowchart TB
 Converts token IDs to dense vectors.
 
 ```python
-# For a 7B model with 32K vocabulary and 4096 hidden size:
+import torch
+
+# For a 7B model with 32K vocabulary and 4096 embedding size:
 # Embedding matrix shape: [32000, 4096]
 # Parameters: 32000 × 4096 = 131 million parameters (~25% of model)
 
-embedding = torch.nn.Embedding(vocab_size=32000, hidden_size=4096)
+embedding = torch.nn.Embedding(vocab_size=32000, embedding_dim=4096)
 token_ids = torch.tensor([101, 2054, 3421])  # Example tokens
 embedded = embedding(token_ids)  # Shape: [3, 4096]
 ```
 
 **Fine-tuning relevance:** Embeddings are typically frozen during LoRA. Full fine-tuning updates them.
+
+#### 1.5 Positional Embeddings
+
+Self-attention is **permutation-invariant** — it has no built-in notion of order. The sequence `["Paris", "is", "in", "France"]` would be treated identically to `["France", "is", "in", "Paris"]` without positional information. Positional embeddings solve this by adding an **order signal** to each token's position.
+
+```python
+# Positional embeddings are added to token embeddings
+# before anything enters the transformer blocks
+
+# Token embeddings:   [seq_len, hidden_dim]   = [4, 4096]
+# Positional embeds: [max_seq_len, hidden_dim] = [32768, 4096]
+# Input to blocks:   [seq_len, hidden_dim]   = [4, 4096]
+
+input_to_transformer = token_embeddings + positional_embeddings
+```
+
+Modern LLMs use **RoPE (Rotary Positional Embeddings)** instead of fixed positional encodings. RoPE encodes position as a rotation in the embedding space — the relative angle between two positions encodes their distance. This gives two key advantages:
+
+1. **Relative position awareness** — the model learns "tokens that are close together are related" rather than memorizing absolute positions.
+2. **Better extrapolation** — RoPE-based models (Llama, Mistral) can generalize to context lengths longer than seen during training.
+
+**Fine-tuning relevance:** If you fine-tune on longer contexts than the model was trained on, RoPE helps the model handle it. But if you truncate context too aggressively, the positional signals can become confused.
 
 #### 2. Self-Attention
 
@@ -167,528 +197,252 @@ class RMSNorm(nn.Module):
 
 ---
 
-## Attention Mechanisms Deep Dive
+### Why N Layers? The Case for Depth
 
-### Types of Attention
+You might look at a model specification and wonder: *why does a 7B model have 32 Transformer blocks, while a 70B model has 80? Can't a single block learn everything?*
 
-| Type | Description | Used In |
-|------|-------------|---------|
-| **Causal (Masked)** | Tokens can only attend to previous tokens | All decoder LLMs |
-| **Bidirectional** | Tokens attend to all positions | BERT, encoders |
-| **Sliding Window** | Attend only to nearby tokens (e.g., 4K window) | Mistral 7B, Gemma |
-| **Global + Local** | Some tokens attend globally, others locally | Longformer, BigBird |
-| **Mixed-RoPE** | Short and long context RoPE heads | Qwen3 |
-| **Linear Attention** | Hybrid linear + full attention layers | Qwen3.5/3.6 |
+The answer is yes and no — a single block *can* learn almost anything in isolation. But it can't learn **complex, hierarchical representations efficiently**. Think of stacked Transformer blocks like the floors of a skyscraper or stations in a restaurant kitchen:
 
-### Sliding Window Attention (Mistral)
+| Layer Depth | What It Learns | Kitchen Analogy |
+|-------------|----------------|-----------------|
+| **Early layers** (1–4) | Syntax, grammar, word co-occurrence | Chopping ingredients |
+| **Middle layers** (5–12) | Phrases, clauses, local context | Cooking individual components |
+| **Deep layers** (13+) | Abstract meaning, reasoning, intent | Plating the final dish |
 
-Mistral-7B uses sliding window attention for efficiency:
+#### Hierarchical Feature Learning
 
-```mermaid
-flowchart LR
-    subgraph Full["Full Attention O(n²)"]
-        A1[Token 1] --> B1[Token 2]
-        A1 --> B2[Token 3]
-        A1 --> B3[Token 4]
-        A1 --> B4["..."]
-        A2[Token 2] --> B1
-        A2 --> B2
-        A2 --> B3
-    end
-    
-    subgraph Window["Sliding Window O(n×w)"]
-        C1[Token 1] -.-> D2[Token 2]
-        C2[Token 2] --> D3[Token 3]
-        C3[Token 3] --> D4[Token 4]
-        C2 -.-> D3
-    end
-    
-    style Full fill:#ffebee
-    style Window fill:#e8f5e9
+Each block takes the representation from the one below it and **refines** it — it doesn't start from scratch:
+
+```
+Input: "The capital of France is"
+
+Layer 1:  "These words co-occur in a grammatical pattern"        → word relationships
+Layer 2:  "'capital of France' is a named entity"                → phrase recognition
+Layer 3:  "This is a geography question expecting a city"         → semantic classification
+Layer 4:  "The answer should be a proper noun, capitalized"       → format expectation
+Layer 5:  "Paris is the most likely continuation"                 → factual knowledge
+Layer 6:  "No extra text, just the name"                          → style / politeness
 ```
 
-**Implication for fine-tuning:** Sliding window models handle longer contexts with less memory.
+Each layer builds on the features the layers below it discovered. One block can do one "pass" of reasoning. Thirty-two blocks mean thirty-two passes, each layering abstraction on top of the last.
 
-### Multi-Query Attention (MQA) and Grouped-Query Attention (GQA)
+#### Why Can't One Block Do It All?
 
-| Type | Key-Value Heads | Example | Notes |
-|------|-----------------|---------|-------|
-| **Multi-Head (MHA)** | Same as query heads (32) | Llama-2-7B | Original attention |
-| **Multi-Query (MQA)** | 1 shared KV head | Falcon-7B | Maximum inference speed |
-| **Grouped-Query (GQA)** | Fewer KV heads (8) | Mistral-7B v0.3, Llama-3.2/3.3 | Best speed/quality balance |
-| **Block-Grouped (BGQA)** | Variable KV heads | Qwen3 | Adaptive per-layer |
+A single Transformer block has limited **representational capacity** and a fixed inductive bias. It performs one attention pass and one feed-forward transformation — essentially one step of thought. To simultaneously track grammar, semantics, pragmatics, world knowledge, and output format, a single step would need impossibly wide dimensions. Stacking blocks achieves the same result more efficiently because:
 
-**Why it matters:** GQA/MQA reduces memory during inference (KV cache is smaller). Fine-tuning doesn't change this architecture.
+1. **Compositionality** — each layer reuses the same operations on increasingly abstract features, just as a CNN detects edges → shapes → objects.
+2. **Parameter efficiency** — thirty-two 4,096-dim blocks use far fewer parameters than one block that tried to do everything in a single pass.
+3. **Gradient flow** — residual connections between layers (the `x + sublayer(x)` pattern) let gradients flow deep during training, enabling the network to learn useful representations at every depth.
 
-### Flash Attention 2 (and 3 Preview)
+#### The Vision Analogy
 
-Flash Attention is an optimized attention implementation that reduces memory complexity from O(n²d) to O(n) by computing attention in a streaming fashion:
+This is directly analogous to convolutional networks for image recognition:
+
+```
+CNN (Images):              Transformer (Text):
+
+Early layers → edges       Layer 1 → word relationships
+Middle layers → shapes     Layer 3 → phrases & dependencies
+Deep layers → objects      Layer 6 → meaning & intent
+```
+
+#### How Many Layers Does Your Model Need?
+
+More layers generally mean more reasoning capacity — but also more compute and more training data required. Here's a rough guide:
+
+| Model Class | Typical Layers | What It Handles Well |
+|-------------|---------------|----------------------|
+| Tiny (< 1B) | ~16–20 | Simple completions, keyword tasks |
+| Small (1–3B) | ~24–28 | General chat, basic reasoning |
+| Medium (7–13B) | ~32–40 | Complex reasoning, multi-step tasks |
+| Large (30–70B) | ~60–80 | Multi-step reasoning, code, math |
+| Huge (100B+) | ~80–100+ | Expert-level reasoning, agentic tasks |
+
+**The takeaway:** depth is the model's "thinking time." A 397B parameter model with 100 layers can reason more deeply than a 7B model with 32 layers — not because it has smarter components, but because it has more layers to build on each component's output.
+
+#### Fine-Tuning Relevance
+
+This hierarchical view explains *why* parameter-efficient fine-tuning methods like LoRA are configured the way they are:
+
+- **Early layers** encode grammar and syntax. Freezing them preserves the model's ability to generate fluent text. LoRA often skips them.
+- **Middle layers** encode context understanding. Fine-tuning these helps the model reorient its understanding of domain-specific terminology.
+- **Deep layers** encode reasoning and style. These are where LoRA has the biggest effect on task behavior.
 
 ```python
-# Enable Flash Attention 2 (recommended for all models)
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen3-8B",
-    attn_implementation="flash_attention_2",
+# A typical LoRA config targets attention + FFN across layers:
+config = LoraConfig(
+    r=8,
+    target_modules=[
+        "q_proj", "k_proj", "v_proj", "o_proj",  # attention — all depths
+        "gate_proj", "up_proj", "down_proj",       # FFN — all depths
+    ],
 )
+# Why all layers? Because different layers learned different things,
+# and domain adaptation requires updating knowledge at every level.
 ```
-
-**Note on Flash Attention 3:** Flash Attention 3 is an ongoing research effort for Hopper/Blackwell GPUs. It is **not yet a supported `attn_implementation` value** in the `transformers` library. Only `"flash_attention_2"` is currently available. Follow the [flash-attn repo](https://github.com/Dao-AILab/flash-attention) for updates on FA3 integration.
-
-**Performance gains:**
-- 2-4x faster training vs. standard attention
-- 40-60% less memory for activations
-- Essential for training on 7B+ models on consumer GPUs
-- Automatic fallback to standard attention if not supported
-
-**Installation:**
-```bash
-pip install flash-attn --no-build-isolation
-```
-
-**Fine-tuning implication:** Enable Flash Attention 2 for all training. It's now the default for many models in transformers 5.x.
 
 ---
 
-## Tokenization and Its Impact
+### The Output Head: Why Only One Layer?
 
-### What is Tokenization?
+You might notice something odd in the architecture diagram: *N* Transformer blocks stack on top of each other, but there's only **one** output layer (often called the LM Head or language model head). Why the asymmetry?
 
-Converting text to numbers the model understands:
+The short answer: the Transformer blocks are the **brain**, and the output head is just the **mouth**. The brain does deep, hierarchical thinking. The mouth just speaks the final word.
+
+#### What the LM Head Actually Does
+
+The output head is a single linear projection — it's mathematically simple:
 
 ```python
-from transformers import AutoTokenizer
+# A 7B model with 4096 hidden size and 32K vocabulary:
+lm_head = nn.Linear(4096, 32000)  # One matrix, one multiplication
 
-tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
-
-text = "Fine-tuning is powerful"
-tokens = tokenizer.tokenize(text)
-print(tokens)  # ['▁Fine', '-', 'tuning', '▁is', '▁power', 'ful']
-
-ids = tokenizer.encode(text)
-print(ids)  # [1234, 567, 8901, 234, 5678, 901]
-
-decoded = tokenizer.decode(ids)
-print(decoded)  # "Fine-tuning is powerful"
+# Given the final layer's representation for the last token:
+# hidden_state shape: [4096]  (the model's final "thought" about this position)
+logits = lm_head(hidden_state)   # Shape: [32000]  (one score per token)
+probabilities = softmax(logits)  # Shape: [32000]  (probabilities over vocabulary)
 ```
 
-### Tokenizer Types
+That's it. One matrix multiplication. No hidden layers. No attention. The model's 32-layer brain has already done all the deep thinking — the LM Head just answers the question: *"given everything the model has figured out, which token in the vocabulary is most likely next?"
 
-| Type | Split Strategy | Example Models |
-|------|----------------|----------------|
-| **WordPiece** | Subword, merges common patterns | BERT |
-| **Byte-Pair Encoding (BPE)** | Iteratively merges frequent pairs | GPT-2, GPT-3, Llama |
-| **SentencePiece** | Treats input as raw bytes | Llama, Mistral, T5 |
-| **TikToken** | Custom BPE variant | GPT-4, Claude |
-| **Unigram** | Probabilistic subword model | BERT multilingual, NLLB |
+#### Why One Layer Is Enough
 
-### Vocabulary Size Impact
+| Requirement | Handled By | Why | |
+|-------------|------------|-----|---|
+| Word relationships | Transformer layers | Learned through attention across all positions | |
+| Context understanding | Transformer layers | Learned through successive refinements | |
+| Abstract reasoning | Transformer layers | Learned through deep hierarchical composition | |
+| **Token prediction** | **LM Head** | **Just a lookup — which vocabulary entry best matches this representation?** | |
 
-| Vocabulary | Pros | Cons |
-|------------|------|------|
-| **Small (32K)** | Smaller embedding layer, faster training | More tokens per text |
-| **Large (100K+)** | Fewer tokens, better compression | Larger model, more memory |
+The LM Head doesn't need depth because it isn't *reasoning*. It's performing a **classification** — mapping the final representation to the nearest point in vocabulary space. Think of it as a high-dimensional nearest-neighbor lookup:
 
-**Fine-tuning implication:** If your domain has specialized vocabulary, consider extending the tokenizer:
+```
+Final hidden state (4096 dims)  →  closest to "Paris" in vocabulary space  →  output "Paris"
+```
+
+#### Weight Tying: The Hidden Savings
+
+In many models (Llama, Mistral, Gemma), the LM Head and the input embedding layer **share the same weights**. This is called *weight tying*:
 
 ```python
-# Add domain-specific tokens
-tokenizer.add_tokens(["cardiomyopathy", "echocardiogram", "troponin"])
+# The embedding layer maps:    token_id → 4096-dim vector
+# The LM head maps:            4096-dim vector → token_id
+# They use the same matrix!
+
+# Embedding: [32000, 4096]
+# LM Head:   [4096, 32000]  (transpose of the same matrix)
+
+# This saves ~131 million parameters (about 2% of a 7B model)
+```
+
+This makes intuitive sense: the same representation that *encodes* a token at the input should be the reference for *decoding* it at the output.
+
+#### Fine-Tuning Relevance
+
+The output head has important practical implications:
+
+- **LoRA rarely targets the LM Head** — it doesn't need fine-tuning for most tasks. The 32-layer brain underneath already knows the domain; it just needs to project that knowledge to the vocabulary.
+- **Full fine-tuning updates it** — when you train end-to-end, the head adapts its projection to match the shifted representations of the fine-tuned layers below.
+- **Extending the vocabulary requires resizing it** — if you add new tokens (medical terms, code keywords), you must resize both the embedding and the LM Head together.
+
+```python
+# Adding new tokens: both layers must grow together
+tokenizer.add_tokens(["my_special_token"])
 model.resize_token_embeddings(len(tokenizer))
+# Behind the scenes: this resizes BOTH the embedding matrix and the LM head
 ```
 
-### Sequence Length and Memory
-
-Memory scales with sequence length:
-
-| Sequence Length | Memory (7B model, batch=1) |
-|-----------------|---------------------------|
-| 512 tokens | ~2 GB |
-| 2048 tokens | ~4 GB |
-| 8192 tokens | ~12 GB |
-| 32768 tokens | ~40 GB |
-
-**Rule of thumb:** Use the shortest context that works. Don't pad to max_length unnecessarily.
+**The takeaway:** depth is for reasoning. The LM Head is a projection, not a reasoner. That's why the architecture is asymmetric — 32 layers of thinking, one layer of speaking.
 
 ---
 
-## Base Models vs. Instruction-Tuned Models
+## Attention Types at a Glance
 
-### Base Models
+You don't need to derive attention formulas to fine-tune, but you should know which type your model uses — it affects context length behavior:
 
-**What they are:** Trained on raw text to predict the next token.
+| Type | How It Works | Models That Use It |
+|------|-------------|-------------------|
+| **Causal (Masked)** | Tokens attend only to previous tokens — standard for decoder-only LLMs | Llama, Mistral, Gemma, Qwen |
+| **Sliding Window** | Tokens attend to nearby tokens within a fixed window — scales better with context | Mistral 7B, Gemma |
+| **Grouped-Query (GQA)** | Multiple query heads share KV keys — faster inference, same quality | Llama-3, Mistral-v0.3 |
+| **Multi-Query (MQA)** | All query heads share one KV pair — fastest inference | Falcon |
 
-**Behavior:** Completes patterns. If you prompt "What is 2+2?", it might continue "2+2? Let me think..." because that's common in training data.
-
-**Examples:**
-- `meta-llama/Llama-3.2-3B` (base)
-- `Qwen/Qwen3-8B` (base)
-- `google/gemma-3-1b-pt` (base)
-- `Qwen/Qwen3-8B` (base)
-- `mistralai/Mistral-7B-Instruct-v0.3` (instruction-tuned)
-- `mistralai/Mistral-7B-Instruct-v0.3` (instruction-tuned)
-
-**When to use:**
-- You want full control over behavior
-- Your task isn't conversational
-- You're doing alignment training (DPO/ORPO)
-
-### Instruction-Tuned Models
-
-**What they are:** Fine-tuned on instruction-following datasets.
-
-**Behavior:** Responds to prompts helpfully. "What is 2+2?" → "2+2 equals 4."
-
-**Examples:**
-- `meta-llama/Llama-3.2-3B-Instruct`
-- `meta-llama/Llama-3.3-70B-Instruct`
-- `mistralai/Mistral-7B-Instruct-v0.3`
-- `google/gemma-4-12B-it`
-- `Qwen/Qwen3-8B` (base — fine-tune for instruction)
-- `google/gemma-4-12B-it`
-- `microsoft/Phi-4-mini-reasoning`
-- `HuggingFaceTB/SmolLM2-1.7B-Instruct`
-
-**When to use:**
-- Chatbots and assistants
-- General instruction following
-- You want a helpful default behavior
-
-### Fine-Tuning Implications
-
-| Scenario | Base Model | Instruction Model |
-|----------|------------|-------------------|
-| **Continue fine-tuning** | Learns new domain well | May retain helpful behavior |
-| **Alignment (DPO/ORPO)** | Better starting point | May conflict with existing alignment |
-| **Format training** | Good | Good, but may resist |
-| **Task training** | Requires more data | Works with less data |
-
-**Recommendation:** Start with instruction-tuned models for most applications. Use base models for alignment work.
-
----
-
-## Model Families and Their Quirks
-
-### Model Families and Their Quirks
-
-#### Llama 3.2 (Meta) — Compact & Edge-Optimized
-
-```python
-from transformers import AutoModelForCausalLM
-
-# Llama-3.2-3B-Instruct (popular edge model)
-model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-3.2-3B-Instruct",
-    torch_dtype=torch.bfloat16,
-    attn_implementation="flash_attention_2",  # Flash Attention 2
-)
-```
-
-**Quirks:**
-- GQA attention (8 KV heads for 3B, 4 for 1B)
-- SwiGLU activation
-- RMSNorm (no bias)
-- 128K context window
-- Bfloat16 recommended
-
-#### Llama 3.3 (Meta) — 70B Powerhouse
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-3.3-70B-Instruct",
-    torch_dtype=torch.bfloat16,
-    attn_implementation="flash_attention_2",
-)
-```
-
-**Quirks:**
-- 128K context window
-- GQA with 64 query heads, 8 KV heads
-- Strongest single-model performance in class
-- Requires multi-GPU for full fine-tuning
-
-#### Llama 4 Scout (Meta) — Multimodal MoE Model
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- **109B total parameters** with 16 experts per token (MoE architecture)
-- The "17B" in the model name refers to active/efficient parameter count, not total
-- Vision-capable (multimodal, image-text-to-text)
-- Supports tool calling and function composition
-- Gated model — requires Meta approval on HuggingFace
-
-#### Llama 4 Maverick (Meta) — Expert-Scale MoE Model
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-4-Maverick-17B-128E-Instruct",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- **402B total parameters** with 128 experts (MoE architecture)
-- The "17B" in the model name refers to active/efficient parameter count, not total
-- Vision-capable (multimodal, image-text-to-text)
-- Requires multi-GPU for full fine-tuning
-- Gated model — requires Meta approval on HuggingFace
-
-#### Mistral-Small-24B (Mistral AI) — Multilingual Leader
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "mistralai/Mistral-Small-24B-Instruct-2501",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Strong multilingual support (10+ languages)
-- Better cost-performance ratio than larger models
-- Supports function calling
-
-#### Mistral-7B-v0.3 (Mistral AI) — Updated Standard
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "mistralai/Mistral-7B-v0.3",
-    torch_dtype=torch.bfloat16,  # v0.3 requires bfloat16
-)
-```
-
-**Quirks:**
-- Improved instruction following over v0.1
-- GQA attention (8 KV heads)
-- Sliding window attention (4096 tokens)
-- 32K context window
-- Now requires bfloat16 (was float16 in v0.1)
-- 32K vocab (32,768 tokens)
-
-#### Qwen3 (Alibaba) — Next Generation Base
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen3-8B",  # Available: 8B, 14B, 32B, 30B-A3B(MoE), 235B-A22B(MoE)
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Mixed-RoPE: short and long context RoPE heads
-- Dense + MoE variants
-- Native tool calling and agentic capabilities
-- Up to 256K context
-- **Note:** Qwen3 text-only models have no instruct variants (Qwen3-VL-8B-Instruct exists as a multimodal model). Fine-tune a base model or use the VL instruct variant.
-
-#### Qwen3.5 (Alibaba) — Expanded Range
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen3.5-9B",  # Available: 0.8B, 2B, 4B, 9B, 27B, 35B-A3B(MoE), 122B-A10B(MoE), 397B-A17B(MoE)
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Extremely wide size range (0.8B to 397B)
-- MoE variants: 35B-A3B, 122B-A10B, 397B-A17B (active params in parentheses)
-- Strong coding and math capabilities
-- **Note:** Base models only — fine-tune for instruction following
-
-#### Qwen3.6 (Alibaba) — Refined Qwen3.5 Architecture
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen3.6-27B",  # Available: 27B, 35B-A3B
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Uses the same `qwen3_5` architecture family as Qwen3.5 with refinements:
-  - `partial_rotary_factor: 0.25` (new — Qwen3.5 lacks this)
-  - `output_gate_type: swish` (new — Qwen3.5 has None)
-  - Larger hidden_size (5120 vs 4096 for 9B variant)
-  - More layers (64 vs 32 for 9B variant)
-- Alternating linear_attention + full_attention layers (full attention every 4th layer)
-- Multimodal (image-text-to-text) — not text-only
-- rope_theta: 10M (much higher than typical 10K)
-- vocab_size: 248,320
-- 256K context window
-- **Note:** Base models only — fine-tune for instruction following
-
-#### Qwen-AgentWorld (Alibaba) — Agentic Foundation
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "Qwen/Qwen-AgentWorld-35B-A3B",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- 35B total / 3B active parameters (MoE)
-- Designed for agentic workflows
-- Image-text-to-text modality
-
-#### Gemma 3 (Google) — Multimodal & Compact
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "google/gemma-3-1b-it",  # Available: 270m, 1B, 4B, 12B, 27B, 3n-E2B(nMoE)
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Multimodal (text + image)
-- FP8 quantization support for efficient inference
-- Gemma 3n-E2B-it: nMoE (non-uniform mixture of experts) variant
-- All sizes have instruct (IT) variants
-
-#### Gemma 4 (Google) — Latest Generation
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "google/gemma-4-12B-it",  # Available instruct: 12B(dense), 31B(dense), E4B(dense), E2B(dense); MoE: 26B-A4B
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Unified architecture across all sizes (gemma4_unified tag)
-- **Dense variants**: 12B (16 heads, 8 KV), 31B (32 heads, 16 KV), E4B (8 heads, 2 KV), E2B (8 heads, 1 KV)
-- **MoE variant**: 26B-A4B (128 experts, top-8 active, 16 heads, 2 global KV heads)
-- The "E4B"/"E2B" naming refers to efficient KV configurations, NOT MoE
-- 262K context window, vocab 262K, sliding window 1024
-- All have instruct (IT) variants
-- QAT (quantization-aware training) variants available
-
-#### DeepSeek V4 (DeepSeek) — Advanced MoE
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "deepseek-ai/DeepSeek-V4-Flash",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Advanced MoE architecture with sparse routing
-- FP8 support for inference
-- Strong coding and math performance
-- MIT licensed
-
-#### GLM-5.2 (Zai-org) — MoE with Dynamic Sparse Attention
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "zai-org/GLM-5.2",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- MoE architecture with Dynamic Sparse Attention (DSA)
-- Bilingual (English + Chinese)
-- High community engagement (3400+ likes)
-
-#### Phi-4-mini-reasoning (Microsoft) — Reasoning Specialist
-
-```python
-model = AutoModelForCausalLM.from_pretrained(
-    "microsoft/Phi-4-mini-reasoning",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- Optimized for mathematical and logical reasoning
-- Compact and efficient
-- Phi-4-mini-reasoning: the latest reasoning-focused model
-
-#### SmolLM2/3 (HuggingFace) — Lightweight & Fun
-
-```python
-# SmolLM2-1.7B-Instruct
-model = AutoModelForCausalLM.from_pretrained(
-    "HuggingFaceTB/SmolLM2-1.7B-Instruct",
-    torch_dtype=torch.bfloat16,
-)
-```
-
-**Quirks:**
-- SmolLM2: 360M-Instruct, 1.7B-Instruct (both instruct variants)
-- SmolLM3: 3B (base only, no instruct variant)
-- Designed for learning and prototyping
-- Excellent for edge deployment
+**Fine-tuning relevance:** Attention type is fixed at model creation — fine-tuning doesn't change it. But it affects how much context your model can process and how much GPU memory that costs (covered in [Section 6](#architecture-s-impact-on-fine-tuning)).
 
 ---
 
 ## Architecture's Impact on Fine-Tuning
 
-### Memory Breakdown (7B Model)
+Now that you know what's inside an LLM, let's see how that architecture shapes every fine-tuning decision — from which GPU you need to which layers you should adapt.
 
-| Component | Parameters | Memory (fp16) |
-|-----------|------------|---------------|
-| Embeddings | 131M | 262 MB |
-| Attention (QKV) | 537M | 1.1 GB |
-| MLP | 5.3B | 10.6 GB |
-| Output Head | 131M | 262 MB |
-| **Total** | **~7B** | **~14 GB** |
+### The Training Memory Formula
 
-**Why this matters:**
-- QLoRA quantizes weights to 4-bit: 14 GB → 3.5 GB
-- LoRA adapters add ~8MB per layer (negligible)
-- Gradients require same memory as parameters
+When you fine-tune a model, GPU memory is split across **six buckets**. Understanding this breakdown explains why some methods fit on a single GPU while others need a cluster:
 
-### Which Layers to Target with LoRA
-
-| Target | Effect | Recommended For |
-|--------|--------|-----------------|
-| `q_proj, v_proj` | Minimal, fast | Quick experiments |
-| `q_proj, k_proj, v_proj, o_proj` | Standard | Most tasks |
-| All attention + MLP | Maximum | Complex domain adaptation |
-| All linear layers | Maximum + embeddings | Full adaptation |
-
-```python
-from peft import LoraConfig
-
-# Standard configuration
-config = LoraConfig(
-    r=8,
-    lora_alpha=32,
-    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-    lora_dropout=0.1,
-)
+```
+Total Memory = Base Weights
+             + Trainable Weights   (adapters or full params)
+             + Gradients
+             + Optimizer States    (Adam tracks two extra values per trainable param)
+             + Activations         (intermediate values stored for backprop)
+             + Overhead            (framework buffers, fragmentation)
 ```
 
-### Architecture-Specific Recommendations
+Here's the key insight: **optimizer states eat memory**. Adam (the default optimizer) stores two full-precision snapshots for every trainable parameter — 8 extra bytes per param. Full fine-tuning makes Adam work on all 7B parameters. LoRA makes it work on ~0.1% of them. That's the entire difference.
 
-| Model | Recommended LoRA Targets | Learning Rate | Notes |
-|-------|-------------------------|---------------|-------|
-| Llama-4-Scout-17B-16E | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
-| Llama-4-Maverick-17B-128E | qkv + o_proj + gate/up/down | 1e-4 | Massive MoE, use QLoRA |
-| Llama-3.2-3B-Instruct | qkv + o_proj + gate/up/down | 2e-4 | All linear for best results |
-| Llama-3.3-70B-Instruct | qkv + o_proj + gate/up/down | 1e-4 | Use QLoRA for 12GB GPUs |
-| Mistral-Small-24B | All linear | 2e-4 | Full adaptation recommended |
-| Mistral-7B-v0.3 | qkv + o_proj + gate/up/down | 2e-4 | All linear recommended |
-| Qwen3-8B | All linear | 2e-4 | Dense attention |
-| Qwen3.5-9B | All linear | 2e-4 | Strong across all modules |
-| Qwen3.6-27B | All linear | 2e-4 | Successor to Qwen3.5 |
-| Qwen3.5-35B-A3B | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
-| Gemma-3-27b-it | All linear | 2e-4 | Largest Gemma 3 variant |
-| Gemma-4-12B-it | All linear | 2e-4 | Unified architecture |
-| Gemma-4-26B-A4B | All linear | 2e-4 | nMoE architecture |
-| DeepSeek-V4-Flash | qkv + o_proj + gate/up/down | 2e-4 | MoE — freeze expert routing |
-| GLM-5.2 | qkv + o_proj + gate/up/down | 2e-4 | MoE DSA architecture |
-| Phi-4-mini-reasoning | qkv + o_proj + gate/up/down | 2e-4 | Reasoning-focused |
-| SmolLM2-1.7B-Instruct | qkv + o_proj | 2e-4 | Compact but capable |
+### Three Methods, Three Memory Budgets
+
+| Method | Frozen Base | What Trains | Memory (7B model, seq=512) | GPU You Need |
+|--------|-------------|-------------|---------------------------|--------------|
+| **Full Fine-Tuning** | — (nothing) | All 7B params | ~72 GB | 2× RTX 3090, or A100-80GB |
+| **LoRA (r=16)** | FP16 (14 GB) | ~35M params | ~26 GB | Single RTX 4090 |
+| **QLoRA (4-bit)** | INT4 (3.5 GB) | ~35M params | ~13 GB | RTX 4060 (16 GB) |
+
+**Rule of thumb:** Full fine-tuning needs roughly 10× the model weight size in GB. LoRA cuts that to ~1.5×. QLoRA brings it down to ~0.4×.
+
+### Where Each Method Actually Makes Changes
+
+Knowing what lives in each component helps you pick the right approach:
+
+| Component | % of Params | What It Does | Method Impact |
+|-----------|-------------|-------------|---------------|
+| **Embeddings** | ~2% | Token-to-vector mapping | Rarely touched — changing these risks destabilizing the model |
+| **Attention (QKV)** | ~7% | Decides which tokens focus on each other | LoRA here shapes *how* the model attends — great for format/style tasks |
+| **MLP / FFN** | ~75% | Feature transformation — where most knowledge lives | LoRA here teaches *new facts* and domain concepts |
+| **Output Head** | ~2% | Vector-to-token mapping | Usually frozen — adapts only for vocabulary changes |
+
+**Architectural insight:** The MLP layers alone contain three-quarters of all parameters. If your fine-tuning task involves teaching new domain knowledge (medical terminology, legal reasoning, code), skipping the MLP layers means the model literally has nowhere to store that information.
+
+### How Architecture Dictates Context Length Limits
+
+The attention mechanism is the bottleneck. Every token in your sequence needs a **key-value pair** stored in memory so the model can attend to it:
+
+```
+KV Cache Memory ≈ 2 × num_layers × hidden_size × sequence_length × 2 bytes
+```
+
+| Model | Context | KV Cache Memory (single sequence) |
+|-------|---------|-----------------------------------|
+| Mistral 7B | 4K tokens | ~256 MB |
+| Mistral 7B | 32K tokens | ~2 GB |
+| Llama-3 70B | 128K tokens | ~50 GB |
+
+This means a 70B model with a 128K context window consumes more memory in KV cache alone than a 7B model does for its entire weight storage. If your fine-tuning data contains long sequences, you'll need gradient checkpointing (trades ~20% more compute for ~4× less activation memory) or shorter sequences.
+
+### Choosing Fine-Tuning Method by Hardware
+
+| VRAM Budget | What You Can Do | Example GPU |
+|-------------|-----------------|-------------|
+| **16 GB** | 7B QLoRA (small batches) | RTX 4060 Ti |
+| **24 GB** | 7B LoRA, 13B QLoRA | RTX 4090, RTX 3090 |
+| **40 GB** | 13B LoRA, 30B QLoRA | A100-40GB, RTX 5080 |
+| **80 GB** | 7B Full FT, 70B QLoRA | A100-80GB, H100 |
+| **160+ GB** | 70B LoRA, multi-GPU full FT | 2× H100, cluster |
+
+**Quick decision guide:**
+- **LoRA** — your practical default. 95–99% of full fine-tuning quality at a fraction of the cost.
+- **QLoRA** — when you can't fit the base model for training. 4-bit quantization makes frontier models trainable on consumer hardware.
+- **Full fine-tuning** — when you need maximum quality, have cluster resources, or are making fundamental behavioral changes to the model.
 
 ---
 
@@ -708,16 +462,6 @@ config = LoraConfig(
 ## References
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017
-- [Llama 4 Scout/Maverick Model Cards](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct)
-- [Llama 3.3 Model Card](https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct)
-- [Llama 3.2 Technical Report](https://ai.meta.com/research/publications/llama-3-2-reaching-the-capability-of-large-language-models-with-a-limited-compute-budget/)
-- [Mistral-Small-24B](https://mistral.ai/news/mistral-small-24b/)
-- [Qwen3 Technical Report](https://github.com/QwenLM/Qwen3)
-- [Qwen3.5 Technical Report](https://github.com/QwenLM/Qwen3.5)
-- [Qwen3.6 Technical Report](https://github.com/QwenLM/Qwen3.6)
-- [Gemma 4 Model Card](https://huggingface.co/google/gemma-4-12B-it)
-- [Flash Attention 2](https://github.com/Dao-AILab/flash-attention)
-- [Flash Attention 3](https://arxiv.org/abs/2407.21783)
+- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) — Hu et al., 2021
+- [QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314) — Dettmers et al., 2023
 - [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) — Jay Alammar
-- [Hugging Face Model Hub](https://huggingface.co/models)
-- [PEFT Library](https://huggingface.co/docs/peft) — 40+ parameter-efficient tuning methods
