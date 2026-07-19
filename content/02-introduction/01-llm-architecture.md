@@ -113,7 +113,7 @@ import torch
 
 # For a 7B model with 32K vocabulary and 4096 embedding size:
 # Embedding matrix shape: [32000, 4096]
-# Parameters: 32000 × 4096 = 131 million parameters (~25% of model)
+# Parameters: 32000 × 4096 = 131 million parameters (~2% of model)
 
 embedding = torch.nn.Embedding(vocab_size=32000, embedding_dim=4096)
 token_ids = torch.tensor([101, 2054, 3421])  # Example tokens
@@ -122,7 +122,7 @@ embedded = embedding(token_ids)  # Shape: [3, 4096]
 
 **Fine-tuning relevance:** Embeddings are typically frozen during LoRA. Full fine-tuning updates them.
 
-#### 1.5 Positional Embeddings
+#### 1.1 Positional Embeddings
 
 Self-attention is **permutation-invariant** — it has no built-in notion of order. The sequence `["Paris", "is", "in", "France"]` would be treated identically to `["France", "is", "in", "Paris"]` without positional information. Positional embeddings solve this by adding an **order signal** to each token's position.
 
@@ -258,7 +258,7 @@ More layers generally mean more reasoning capacity — but also more compute and
 | Large (30–70B) | ~60–80 | Multi-step reasoning, code, math |
 | Huge (100B+) | ~80–100+ | Expert-level reasoning, agentic tasks |
 
-**The takeaway:** depth is the model's "thinking time." A 397B parameter model with 100 layers can reason more deeply than a 7B model with 32 layers — not because it has smarter components, but because it has more layers to build on each component's output.
+**The takeaway:** depth is the model's "thinking time." A 300B parameter model with 80 layers can reason more deeply than a 7B model with 32 layers — not because it has smarter components, but because it has more layers to build on each component's output.
 
 #### Fine-Tuning Relevance
 
@@ -307,12 +307,12 @@ That's it. One matrix multiplication. No hidden layers. No attention. The model'
 
 #### Why One Layer Is Enough
 
-| Requirement | Handled By | Why | |
-|-------------|------------|-----|---|
-| Word relationships | Transformer layers | Learned through attention across all positions | |
-| Context understanding | Transformer layers | Learned through successive refinements | |
-| Abstract reasoning | Transformer layers | Learned through deep hierarchical composition | |
-| **Token prediction** | **LM Head** | **Just a lookup — which vocabulary entry best matches this representation?** | |
+| Requirement | Handled By | Why |
+|-------------|------------|-----|
+| Word relationships | Transformer layers | Learned through attention across all positions |
+| Context understanding | Transformer layers | Learned through successive refinements |
+| Abstract reasoning | Transformer layers | Learned through deep hierarchical composition |
+| **Token prediction** | **LM Head** | **Just a lookup — which vocabulary entry best matches this representation?** |
 
 The LM Head doesn't need depth because it isn't *reasoning*. It's performing a **classification** — mapping the final representation to the nearest point in vocabulary space. Think of it as a high-dimensional nearest-neighbor lookup:
 
@@ -325,12 +325,12 @@ Final hidden state (4096 dims)  →  closest to "Paris" in vocabulary space  →
 In many models (Llama, Mistral, Gemma), the LM Head and the input embedding layer **share the same weights**. This is called *weight tying*:
 
 ```python
-# The embedding layer maps:    token_id → 4096-dim vector
-# The LM head maps:            4096-dim vector → token_id
-# They use the same matrix!
+# The LM head and the embedding layer share the SAME matrix — not a separate transpose.
+# In PyTorch: model.get_output_embeddings().weight = model.get_input_embeddings().weight
+# Both shapes are [32000, 4096] — one tensor, two roles.
 
-# Embedding: [32000, 4096]
-# LM Head:   [4096, 32000]  (transpose of the same matrix)
+# Embedding: lookup row by token ID → 4096-dim vector
+# LM head:   dot product of hidden state with every row → 32000 logits
 
 # This saves ~131 million parameters (about 2% of a 7B model)
 ```
@@ -418,14 +418,14 @@ Knowing what lives in each component helps you pick the right approach:
 The attention mechanism is the bottleneck. Every token in your sequence needs a **key-value pair** stored in memory so the model can attend to it:
 
 ```
-KV Cache Memory ≈ 2 × num_layers × hidden_size × sequence_length × 2 bytes
+KV Cache Memory = 2 × num_layers × num_kv_heads × head_dim × seq_len × batch_size × bytes_per_element
 ```
 
-| Model | Context | KV Cache Memory (single sequence) |
-|-------|---------|-----------------------------------|
-| Mistral 7B | 4K tokens | ~256 MB |
-| Mistral 7B | 32K tokens | ~2 GB |
-| Llama-3 70B | 128K tokens | ~50 GB |
+| Model | Config | KV Cache (1 sequence, BF16) |
+|-------|--------|-----------------------------|
+| Mistral 7B | 32 layers, 8 KV heads, 128 dim | ~512 MB @ 4K · ~4 GB @ 32K |
+| Llama-3 8B | 32 layers, 8 KV heads, 128 dim | ~512 MB @ 4K · ~4 GB @ 32K |
+| Llama-3 70B | 80 layers, 8 KV heads, 128 dim | ~1.3 GB @ 4K · ~10.5 GB @ 32K |
 
 This means a 70B model with a 128K context window consumes more memory in KV cache alone than a 7B model does for its entire weight storage. If your fine-tuning data contains long sequences, you'll need gradient checkpointing (trades ~20% more compute for ~4× less activation memory) or shorter sequences.
 
@@ -433,7 +433,7 @@ This means a 70B model with a 128K context window consumes more memory in KV cac
 
 | VRAM Budget | What You Can Do | Example GPU |
 |-------------|-----------------|-------------|
-| **16 GB** | 7B QLoRA (small batches) | RTX 4060 Ti |
+| **16 GB** | 7B QLoRA (small batches) | RTX 4060 Ti, RTX 4080 |
 | **24 GB** | 7B LoRA, 13B QLoRA | RTX 4090, RTX 3090 |
 | **40 GB** | 13B LoRA, 30B QLoRA | A100-40GB, RTX 5080 |
 | **80 GB** | 7B Full FT, 70B QLoRA | A100-80GB, H100 |
@@ -464,4 +464,6 @@ This means a 70B model with a 128K context window consumes more memory in KV cac
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017
 - [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) — Hu et al., 2021
 - [QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314) — Dettmers et al., 2023
+- [Using the Output Embedding to Improve Language Models](https://aclanthology.org/E17-2025) — Press & Wolf, 2017 (weight tying)
+- [Transformer Math 101](https://www.lesswrong.com/posts/avgrwRkr8nSeCp4SP/transformer-math-101) — EleutherAI (parameter counting & memory estimation)
 - [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) — Jay Alammar
