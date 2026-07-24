@@ -1,6 +1,6 @@
 # Parameter-Efficient Fine-Tuning (PEFT)
 
-Fine-tuning large language models efficiently using LoRA, QLoRA, and adapters—reducing memory by 10× while matching full fine-tuning performance.
+Fine-tuning large language models efficiently using LoRA, QLoRA, DoRA, and GaLore—reducing memory by 10× while matching full fine-tuning performance.
 
 ## Overview
 
@@ -10,9 +10,9 @@ Full fine-tuning updates all model parameters, requiring:
 - **70B model**: 280GB+ VRAM
 
 PEFT methods freeze the base model and train small adapter modules:
-- **7B with LoRA**: ~3GB VRAM (QLoRA)
-- **13B with LoRA**: ~5GB VRAM (QLoRA)
-- **70B with LoRA**: ~12GB VRAM (QLoRA)
+- **7B with QLoRA**: ~3GB VRAM
+- **7B with DoRA**: ~3.5GB VRAM
+- **7B with GaLore**: ~15GB VRAM (trains all params, not just adapters)
 
 ```mermaid
 graph LR
@@ -261,7 +261,8 @@ graph TD
     PEFT --> Prompt[Prompt Tuning]
     PEFT --> Adapter[Adapter Layers]
     
-    LoRA --> LoRA_variants[LoRA, QLoRA, AdaLoRA]
+    LoRA --> LoRA_variants[LoRA, QLoRA, DoRA]
+    LoRA --> GaLore_variants[GaLore (gradient projection)]
     Prefix --> Prefix_variants[Prefix, P-Tuning v2]
     Prompt --> Prompt_variants[Prompt, Soft Prompt]
     Adapter --> Adapter_variants[Houlsby, Pfeiffer, Compacter]
@@ -627,7 +628,184 @@ graph TB
 |--------|--------|---------|-------|----------|
 | **QLoRA** | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ | Limited VRAM, prototyping |
 | **LoRA** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | Production, best quality |
-| **Full FT** | ⭐ | ⭐⭐⭐ | ⭐ | Research, maximum performance |
+| **DoRA** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ | Best PEFT quality, lower ranks |
+| **GaLore** | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐ | Full-parameter, best generalization |
+| **Full FT** | ⭐ | ⭐⭐⭐⭐ | ⭐ | Research, maximum performance |
+
+---
+
+## Chapter 6: Advanced PEFT (The Next Generation of LoRA)
+
+LoRA and QLoRA are the standard starting points—but they both share a fundamental limitation. LoRA constrains the entire training to a low-rank subspace, which means the model can only learn within that narrow "tube." This sometimes creates a quality gap between PEFT and full fine-tuning.
+
+Two techniques have emerged to close that gap.
+
+### DoRA: Weight-Decomposed Low-Rank Adaptation
+
+**The problem with LoRA**: Every time LoRA adjusts a weight matrix, it changes both the *magnitude* (how big the weights are) and the *direction* (which way they point) at the same time. These two changes are proportional—you can't make a big directional change without also shifting the magnitude, and vice versa.
+
+**What DoRA does**: It splits the weight matrix into two independent parts and trains them separately:
+
+```
+Weight = Magnitude (m)  ×  Direction (V)
+```
+
+- **Magnitude** (`m`): How large each column of weights is. Learned as a small vector—only ~0.02% more parameters than LoRA.
+- **Direction** (`V`): Which way the weights point. Updated using standard LoRA matrices (A × B).
+
+```mermaid
+graph LR
+    subgraph LoRA["Standard LoRA"]
+        L1[W + BA<br/>magnitude AND direction<br/>change together] 
+    end
+    subgraph DoRA["DoRA"]
+        D1[m (magnitude)<br/>learned separately] --> D2[V + ΔV<br/>(direction via LoRA)<br/>normalized] --> D3[m × V_normalized<br/>final weight]
+    end
+    
+    style LoRA fill:#2d333b
+    style DoRA fill:#347d39
+    style D1 fill:#238636
+    style D2 fill:#238636
+    style D3 fill:#238636
+```
+
+The key insight: because magnitude and direction are independent, DoRA can make a big directional shift without touching magnitude, or scale up magnitude without changing direction—just like full fine-tuning does.
+
+**What this means in practice**:
+
+| Aspect | LoRA | DoRA |
+|--------|------|------|
+| Trainable params | 1-2% | ~1-2% (adds ~0.02% for magnitude) |
+| VRAM overhead | Baseline | +5-10% (for magnitude vector) |
+| Quality vs. FT | 95-98% | 97-99% |
+| Lower-rank performance | Degrades quickly | Still strong (rank=8 often beats LoRA rank=16) |
+| Inference overhead | None | None (can merge to weights) |
+
+**When to use DoRA**:
+- You need the best possible quality from PEFT (closest to full fine-tuning)
+- You want to use lower ranks (saves memory, fewer parameters)
+- You're training for many epochs (DoRA converges slightly slower than LoRA, so it benefits from longer training)
+
+**Quick setup**:
+
+```python
+from peft import LoraConfig
+
+# Just add use_dora=True to your LoraConfig
+config = LoraConfig(
+    r=8,              # DoRA often works well with lower ranks
+    lora_alpha=16,
+    use_dora=True,    # Enable DoRA
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+)
+```
+
+> **Tip**: Start with half the rank you'd use for LoRA (e.g., r=8 instead of r=16). Use a slightly lower learning rate, and give it more training steps—DoRA converges slower but reaches higher quality.
+
+### GaLore: Gradient Low-Rank Projection
+
+**The problem with both LoRA and DoRA**: They freeze most of the model and only train a tiny subset of adapter weights. This means the bulk of the model never participates in training. For maximum quality, you want *all* parameters to learn—but updating every parameter normally requires massive memory.
+
+**What GaLore does**: It lets you train **all parameters** while using only PEFT-level memory. The trick? It works on the *gradients*, not the weights.
+
+Here's the key difference:
+
+```
+LoRA:    Add small adapters → only adapters train
+GaLore:  All parameters train → gradients are projected into a low-rank space
+```
+
+GaLore's process during each training step:
+
+```mermaid
+sequenceDiagram
+    participant FW as Forward Pass
+    participant BP as Backward Pass<br/>(full gradients computed)
+    participant SV as SVD Projection<br/>(every ~200 steps)
+    participant Opt as AdamW in<br/>low-rank subspace
+    participant Up as Update all<br/>model weights
+    
+    FW->>BP: Compute loss, backprop
+    BP->>SV: Project gradient G<br/>into low-rank subspace
+    SV->>Opt: Low-rank gradient<br/>(r << d)
+    Opt->>Up: Full-parameter update
+    Up->>FW: Next forward pass
+```
+
+1. **Backprop as usual**: Full gradients `G` are computed for all weights.
+2. **Project into low-rank**: Instead of storing the full `m×n` gradient matrix, GaLore uses SVD to project it into a much smaller `r×n` subspace (typically r=128-256). This is the memory-saving step.
+3. **Update optimizer state**: AdamW stores its momentum/covariance stats only in the compressed `r×n` space—**not** the full `m×n` space. This saves ~65% of optimizer memory.
+4. **Update all weights**: The weight update is reconstructed to full rank and applied to *every parameter* in the model.
+
+The projection matrix (the SVD basis) is refreshed every 200 steps or so. Between refreshes, it's just a cheap matrix multiply.
+
+**Why this works**: Gradients change slowly during training and are approximately low-rank. The important learning signal lives in a small subspace—the rest is mostly noise that the optimizer would filter out anyway.
+
+**GaLore vs. LoRA — the trade-off**:
+
+| Aspect | LoRA | GaLore |
+|--------|------|--------|
+| What trains | Adapters only (~1-2%) | **All parameters (100%)** |
+| VRAM (7B model) | ~3GB (QLoRA) | ~15-18GB (BF16) |
+| Quality vs. FT | 95-98% | 97-99% |
+| Inference | Merge adapters | None needed (full weights) |
+| Training speed | Fast | Slower (~2×, due to SVD refresh) |
+| Convergence | Faster early on | Slightly slower, better long-term |
+
+**When to use GaLore**:
+- You need full-parameter expressiveness (best long-term generalization)
+- You're training for many epochs (the quality advantage grows)
+- You want a clean checkpoint (no adapter merge step needed)
+- You have a 24-40GB GPU (runs 7B models on consumer hardware like an RTX 4090)
+
+**When NOT to use GaLore**:
+- You have very limited VRAM (<12GB) — use QLoRA instead
+- You need fast iteration — training is ~2× slower than LoRA
+- Your dataset is small (<1k samples) — LoRA is sufficient
+
+**Quick setup with HuggingFace Trainer**:
+
+```python
+from transformers import TrainingArguments, Trainer
+
+training_args = TrainingArguments(
+    output_dir="./output",
+    optim="galore_adamw_8bit_layerwise",  # 8-bit GaLore optimizer
+    optim_target_modules=["attn", "mlp"], # Apply to attention + MLP
+    optim_args="rank=128, update_proj_gap=200, scale=0.25",
+    # ... rest of your training args
+)
+```
+
+Or with `galore-torch` directly:
+
+```python
+from galore_torch import GaLoreAdamW8bit
+
+# Split params: GaLore for weight matrices, standard for biases/norms
+galore_params = [p for p in model.parameters() 
+                 if p.dim() == 2 and p.requires_grad]
+standard_params = [p for p in model.parameters() 
+                   if p.dim() != 2 or not p.requires_grad]
+
+optimizer = GaLoreAdamW8bit(
+    [
+        {"params": galore_params, "rank": 128, 
+         "update_proj_gap": 200, "scale": 0.25},
+        {"params": standard_params},
+    ],
+    lr=2e-5
+)
+```
+
+### Quick Decision Guide
+
+```
+Need to fine-tune with limited VRAM?
+├── < 12GB  → QLoRA (fastest, smallest footprint)
+├── 12-20GB → DoRA (best quality for PEFT, minimal extra VRAM)
+└── > 20GB  → GaLore (full-parameter training, best generalization)
+```
 
 ---
 
@@ -641,5 +819,7 @@ graph TB
 4. **Alpha scaling**: Keep α/r ≈ 2 for optimal performance
 5. **Adapters** enable multi-task learning with shared base model
 6. **Merge adapters** before deployment for inference efficiency
+7. **DoRA** improves on LoRA by splitting weights into magnitude and direction — better quality at lower ranks, no inference overhead
+8. **GaLore** trains all parameters with PEFT-level memory by projecting gradients into a low-rank subspace — best long-term generalization
 
 **Next**: Module 07 covers RLHF and alignment techniques.
